@@ -23,7 +23,7 @@ export default function MeetingListPage() {
   return (
     <div style={{ height: '100vh', backgroundColor: colors.surface, display: 'flex', flexDirection: 'column' }}>
 
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '8px 20px 20px', overflow: 'hidden' }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '8px 20px 80px', overflow: 'hidden' }}>
 
         {/* 제목 */}
         <p style={{ marginTop: 4, fontSize: 22, fontWeight: '700', color: colors.onSurface }}>모임</p>
