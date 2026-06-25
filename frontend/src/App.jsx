@@ -28,7 +28,8 @@ export default function App() {
   return (
     <Routes>
       {/* 온보딩 & 로그인 */}
-      <Route path="/onboarding" element={<OnboardingPage />} />
+      <Route path="/onboarding-1" element={<OnboardingPage />} />
+      <Route path="/onboarding-2" element={<OnboardingPage />} />
       <Route path="/login" element={<LoginPage />} />
 
       {/* 초기 설정 플로우 */}
@@ -45,11 +46,14 @@ export default function App() {
       {/* 모임 */}
       <Route path="/meetings/new" element={<CreateMeetingPage />} />
       <Route path="/meetings/:id" element={<MeetingDetailPage />} />
+
+      {/* 초대 */}
       <Route path="/invite/:token" element={<InvitePage />} />
+      <Route path="/invite/:token/join" element={<InvitePage />} />
 
       {/* AI 추천 / 확정 */}
-      <Route path="/meetings/:id/recommendations" element={<AiResultPage />} />
-      <Route path="/meetings/:id/confirmed" element={<ConfirmedPage />} />
+      <Route path="/recommendations" element={<AiResultPage />} />
+      <Route path="/confirmed" element={<ConfirmedPage />} />
 
       {/* 그 외 → 홈 */}
       <Route path="*" element={<Navigate to="/" replace />} />

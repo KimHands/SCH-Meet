@@ -76,7 +76,7 @@ export default function InvitePage() {
       <div style={{ padding: '14px 20px 18px' }}>
         <Button
           label="제출하기"
-          onClick={() => navigate('/meetings/1/recommendations')}
+          onClick={() => navigate('/recommendations')}
           style={{ width: '100%' }}
         />
       </div>
