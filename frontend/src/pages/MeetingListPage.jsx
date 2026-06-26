@@ -48,7 +48,14 @@ export default function MeetingListPage() {
 
         {/* 모임 카드 목록 */}
         <div style={{ flex: 1, overflowY: 'auto', marginTop: 16, display: 'flex', flexDirection: 'column', gap: 12, paddingBottom: 8 }}>
-          {MEETINGS.map((m) => (
+          {activeTab === 'ended' && (
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', paddingTop: 60 }}>
+              <Icon name="event_busy" size={48} color={colors.outlineVariant} />
+              <p style={{ marginTop: 14, fontSize: 15, fontWeight: '600', color: colors.onSurfaceVariant }}>종료된 모임이 없어요</p>
+              <p style={{ marginTop: 6, fontSize: 13, color: colors.outline, textAlign: 'center', lineHeight: '19px' }}>모임이 종료되면 여기에 표시돼요</p>
+            </div>
+          )}
+          {activeTab === 'active' && MEETINGS.map((m) => (
             <div
               key={m.title}
               onClick={() => navigate('/meetings/1')}
@@ -118,6 +125,13 @@ export default function MeetingListPage() {
               </div>
             </div>
           ))}
+          {activeTab === 'active' && MEETINGS.length === 0 && (
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', paddingTop: 60 }}>
+              <Icon name="groups" size={48} color={colors.outlineVariant} />
+              <p style={{ marginTop: 14, fontSize: 15, fontWeight: '600', color: colors.onSurfaceVariant }}>참여 중인 모임이 없어요</p>
+              <p style={{ marginTop: 6, fontSize: 13, color: colors.outline, textAlign: 'center', lineHeight: '19px' }}>아래 버튼을 눌러 첫 모임을 만들어보세요</p>
+            </div>
+          )}
         </div>
 
         {/* 모임 만들기 버튼 */}

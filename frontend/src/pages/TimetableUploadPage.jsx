@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { colors } from '../styles/theme';
 import AppBar from '../components/AppBar';
@@ -6,6 +7,18 @@ import Icon from '../components/Icon';
 
 export default function TimetableUploadPage() {
   const navigate = useNavigate();
+  const [url, setUrl] = useState('');
+  const [urlError, setUrlError] = useState('');
+  const [urlOk, setUrlOk] = useState(false);
+
+  const handleUrlCheck = () => {
+    if (!url.trim()) { setUrlError('URL을 입력해주세요.'); setUrlOk(false); return; }
+    // 에브리타임 시간표 URL 형식 체크
+    const isValid = url.startsWith('https://everytime.kr/') || url.startsWith('http://everytime.kr/');
+    if (!isValid) { setUrlError('에브리타임 시간표 URL 형식이 아닙니다.'); setUrlOk(false); return; }
+    setUrlError('');
+    setUrlOk(true);
+  };
 
   return (
     <div style={{ height: '100vh', backgroundColor: colors.surface, display: 'flex', flexDirection: 'column' }}>
@@ -70,10 +83,12 @@ export default function TimetableUploadPage() {
         {/* URL 입력창 */}
         <div style={{ display: 'flex', gap: 8 }}>
           <input
+            value={url}
+            onChange={(e) => { setUrl(e.target.value); setUrlOk(false); setUrlError(''); }}
             placeholder="URL을 붙여넣어 주세요"
             style={{
               flex: 1, height: 44,
-              border: `1px solid ${colors.outlineVariant}`,
+              border: `1px solid ${urlError ? colors.error : urlOk ? colors.primary : colors.outlineVariant}`,
               borderRadius: 8,
               backgroundColor: '#fff',
               paddingLeft: 13, paddingRight: 13,
@@ -83,8 +98,10 @@ export default function TimetableUploadPage() {
               outline: 'none',
             }}
           />
-          <Button label="확인" height={44} fontSize={12} style={{ paddingLeft: 14, paddingRight: 14 }} />
+          <Button label="확인" onClick={handleUrlCheck} height={44} fontSize={12} style={{ paddingLeft: 14, paddingRight: 14 }} />
         </div>
+        {urlError && <p style={{ marginTop: 4, fontSize: 12, color: colors.error }}>{urlError}</p>}
+        {urlOk && <p style={{ marginTop: 4, fontSize: 12, color: colors.primary }}>✓ URL이 확인되었습니다.</p>}
 
         {/* TIP 박스 */}
         <div style={{

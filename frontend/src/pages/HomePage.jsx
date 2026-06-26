@@ -4,6 +4,11 @@ import BottomNav from '../components/BottomNav';
 import Button from '../components/Button';
 import Icon from '../components/Icon';
 
+// 실제 모임 데이터 (백엔드 연동 전 더미 데이터, 빈 배열로 바꾸면 빈 상태 확인 가능)
+const MEETINGS_PREVIEW = [
+  { title: '중간발표 준비', meta: '4명 / 조별 모임 · 다음 추천 수 14:00' },
+];
+
 const SUMMARY = [
   { icon: 'school',        fg: colors.primary,          n: '2개', label: '남은 수업' },
   { icon: 'assignment',    fg: colors.primary,          n: '1개', label: '오늘 마감' },
@@ -119,30 +124,48 @@ export default function HomePage() {
 
         {/* 참여 중인 모임 */}
         <p style={{ marginTop: 14, fontSize: 13, fontWeight: '600', color: colors.onSurfaceVariant }}>참여 중인 모임</p>
-        <div
-          onClick={() => navigate('/meetings/1')}
-          style={{
-            marginTop: 8, display: 'flex', alignItems: 'center', gap: 11,
+        {MEETINGS_PREVIEW.length > 0 ? (
+          MEETINGS_PREVIEW.map((m) => (
+            <div
+              key={m.title}
+              onClick={() => navigate('/meetings/1')}
+              style={{
+                marginTop: 8, display: 'flex', alignItems: 'center', gap: 11,
+                backgroundColor: '#fff',
+                border: `1px solid ${colors.surfaceContainerHighest}`,
+                borderRadius: 14, paddingTop: 13, paddingBottom: 13,
+                paddingLeft: 14, paddingRight: 14,
+                cursor: 'pointer',
+              }}
+            >
+              <div style={{
+                width: 38, height: 38, borderRadius: 11,
+                backgroundColor: colors.primaryFixed,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                <Icon name="campaign" size={20} color={colors.primary} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <p style={{ fontSize: 14, fontWeight: '600', color: colors.onSurface }}>{m.title}</p>
+                <p style={{ fontSize: 11, color: colors.outline, marginTop: 2 }}>{m.meta}</p>
+              </div>
+              <Icon name="chevron_right" size={20} color={colors.outline} />
+            </div>
+          ))
+        ) : (
+          <div style={{
+            marginTop: 8,
             backgroundColor: '#fff',
             border: `1px solid ${colors.surfaceContainerHighest}`,
-            borderRadius: 14, paddingTop: 13, paddingBottom: 13,
-            paddingLeft: 14, paddingRight: 14,
-            cursor: 'pointer',
-          }}
-        >
-          <div style={{
-            width: 38, height: 38, borderRadius: 11,
-            backgroundColor: colors.primaryFixed,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            borderRadius: 14,
+            paddingTop: 24, paddingBottom: 24,
+            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
           }}>
-            <Icon name="campaign" size={20} color={colors.primary} />
+            <Icon name="groups" size={34} color={colors.outlineVariant} />
+            <p style={{ fontSize: 13, fontWeight: '600', color: colors.onSurfaceVariant }}>참여 중인 모임이 없어요</p>
+            <p style={{ fontSize: 12, color: colors.outline }}>아래 버튼으로 모임을 만들어보세요</p>
           </div>
-          <div style={{ flex: 1 }}>
-            <p style={{ fontSize: 14, fontWeight: '600', color: colors.onSurface }}>중간발표 준비</p>
-            <p style={{ fontSize: 11, color: colors.outline, marginTop: 2 }}>4명 / 조별 모임 · 다음 추천 수 14:00</p>
-          </div>
-          <Icon name="chevron_right" size={20} color={colors.outline} />
-        </div>
+        )}
 
         {/* 모임 만들기 버튼 */}
         <Button onClick={() => navigate('/meetings/new')} height={50} fontSize={15} style={{ width: '100%', marginTop: 14 }}>

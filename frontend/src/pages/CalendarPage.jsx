@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { colors } from '../styles/theme';
 import BottomNav from '../components/BottomNav';
 
@@ -21,44 +20,12 @@ const TOTAL_HOURS = 14; // 08 ~ 22 = 14시간
 const HOUR_HEIGHT = 56; // px per hour
 
 export default function CalendarPage() {
-  const [view, setView] = useState('week'); // 'week' | 'month'
-
   return (
     <div style={{ height: '100vh', backgroundColor: colors.surface, display: 'flex', flexDirection: 'column' }}>
 
       {/* 헤더 */}
       <div style={{ padding: '12px 20px 0' }}>
         <p style={{ fontSize: 22, fontWeight: '700', color: colors.onSurface }}>캘린더</p>
-
-        {/* 주간 / 월간 탭 */}
-        <div style={{
-          marginTop: 12,
-          display: 'flex',
-          backgroundColor: colors.surfaceContainerLow,
-          borderRadius: 9999,
-          padding: 3,
-        }}>
-          {['week', 'month'].map((v) => {
-            const on = view === v;
-            return (
-              <button
-                key={v}
-                onClick={() => setView(v)}
-                style={{
-                  flex: 1, height: 34, borderRadius: 9999,
-                  border: 'none', cursor: 'pointer',
-                  backgroundColor: on ? '#fff' : 'transparent',
-                  fontFamily: "'Be Vietnam Pro', sans-serif",
-                  fontSize: 13, fontWeight: on ? '600' : '500',
-                  color: on ? colors.onSurface : colors.outline,
-                  boxShadow: on ? '0px 1px 4px rgba(0,0,0,0.08)' : 'none',
-                }}
-              >
-                {v === 'week' ? '주간' : '월간'}
-              </button>
-            );
-          })}
-        </div>
 
         {/* 범례 */}
         <div style={{ marginTop: 10, marginBottom: 8, display: 'flex', gap: 12 }}>

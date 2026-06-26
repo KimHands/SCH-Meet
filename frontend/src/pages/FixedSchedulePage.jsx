@@ -15,6 +15,27 @@ const SAVED = [
 export default function FixedSchedulePage() {
   const navigate = useNavigate();
   const [selectedDays, setSelectedDays] = useState([0]); // 월요일 기본 선택
+  const [title, setTitle] = useState('');
+  const [startTime, setStartTime] = useState('');
+  const [endTime, setEndTime] = useState('');
+  const [timeError, setTimeError] = useState('');
+  const [savedList, setSavedList] = useState(SAVED);
+
+  const handleAdd = () => {
+    if (!title.trim() || !startTime || !endTime) return;
+    if (startTime >= endTime) { setTimeError('종료 시간은 시작 시간보다 늦어야 해요.'); return; }
+    setTimeError('');
+    const days = selectedDays.map((d) => DAYS[d]).join(', ');
+    setSavedList((prev) => [...prev, {
+      icon: 'event', bg: colors.secondaryContainer, fg: colors.secondary,
+      title, when: `매주 ${days} ${startTime} ~ ${endTime}`,
+    }]);
+    setTitle(''); setStartTime(''); setEndTime(''); setSelectedDays([]);
+  };
+
+  const handleDelete = (index) => {
+    setSavedList((prev) => prev.filter((_, i) => i !== index));
+  };
 
   const toggleDay = (index) => {
     setSelectedDays((prev) =>
@@ -56,6 +77,8 @@ export default function FixedSchedulePage() {
           {/* 일정 제목 입력 */}
           <p style={{ marginTop: 14, fontSize: 12, fontWeight: '600', color: colors.onSurfaceVariant }}>일정 제목</p>
           <input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
             placeholder="예) 알바"
             style={{
               marginTop: 6, width: '100%', height: 42,
@@ -96,34 +119,38 @@ export default function FixedSchedulePage() {
 
           {/* 시작/종료 시간 */}
           <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
-            {['시작 시간', '종료 시간'].map((label, i) => (
+            {[{ label: '시작 시간', value: startTime, onChange: setStartTime },
+              { label: '종료 시간', value: endTime, onChange: setEndTime }].map(({ label, value, onChange }) => (
               <div key={label} style={{ flex: 1 }}>
                 <p style={{ fontSize: 12, fontWeight: '600', color: colors.onSurfaceVariant }}>{label}</p>
-                <div style={{
-                  marginTop: 6, height: 42,
-                  border: `1px solid ${colors.outlineVariant}`,
-                  borderRadius: 8, paddingLeft: 12, paddingRight: 12,
-                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  backgroundColor: '#fff',
-                }}>
-                  <span style={{ fontSize: 13, fontWeight: '500', color: colors.onSurface }}>
-                    {i === 0 ? '18:00' : '23:00'}
-                  </span>
-                  <Icon name="schedule" size={16} color={colors.outline} />
-                </div>
+                <input
+                  type="time"
+                  value={value}
+                  onChange={(e) => onChange(e.target.value)}
+                  style={{
+                    marginTop: 6, width: '100%', height: 42,
+                    border: `1px solid ${timeError ? colors.error : colors.outlineVariant}`,
+                    borderRadius: 8, paddingLeft: 12, paddingRight: 12,
+                    fontSize: 13, color: colors.onSurface,
+                    fontFamily: "'Be Vietnam Pro', sans-serif",
+                    outline: 'none', boxSizing: 'border-box',
+                    backgroundColor: '#fff',
+                  }}
+                />
               </div>
             ))}
           </div>
+          {timeError && <p style={{ marginTop: 4, fontSize: 12, color: colors.error }}>{timeError}</p>}
 
           {/* 추가하기 버튼 */}
-          <Button variant="secondary" label="추가하기" height={44} fontSize={13} style={{ width: '100%', marginTop: 14 }} />
+          <Button variant="secondary" label="추가하기" onClick={handleAdd} height={44} fontSize={13} style={{ width: '100%', marginTop: 14 }} />
         </div>
 
         {/* 등록된 일정 목록 */}
         <p style={{ marginTop: 16, fontSize: 13, fontWeight: '600', color: colors.onSurfaceVariant }}>등록된 일정</p>
         <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {SAVED.map((s) => (
-            <div key={s.title} style={{
+          {savedList.map((s, index) => (
+            <div key={index} style={{
               display: 'flex', alignItems: 'center', gap: 11,
               backgroundColor: '#fff',
               border: `1px solid ${colors.surfaceContainerHighest}`,
@@ -143,7 +170,12 @@ export default function FixedSchedulePage() {
                 <p style={{ fontSize: 11, color: colors.outline, marginTop: 1 }}>{s.when}</p>
               </div>
               <Icon name="edit" size={18} color={colors.outline} />
-              <Icon name="delete" size={18} color={colors.outline} />
+              <button
+                onClick={() => handleDelete(index)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2, display: 'flex', alignItems: 'center' }}
+              >
+                <Icon name="delete" size={18} color={colors.error} />
+              </button>
             </div>
           ))}
         </div>
@@ -153,7 +185,7 @@ export default function FixedSchedulePage() {
       {/* 하단 버튼 */}
       <div style={{ display: 'flex', gap: 10, padding: '14px 20px 18px' }}>
         <Button variant="outline" label="이전" onClick={() => navigate(-1)} height={52} fontSize={15} style={{ flex: 1 }} />
-        <Button label="다음" onClick={() => navigate('/')} height={52} fontSize={15} style={{ flex: 1.6 }} />
+        <Button label="시작하기" onClick={() => navigate('/')} height={52} fontSize={15} style={{ flex: 1.6 }} />
       </div>
 
     </div>
