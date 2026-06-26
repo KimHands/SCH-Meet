@@ -86,10 +86,16 @@ export default function ConfirmedPage() {
       </div>
 
       {/* 하단 버튼 */}
-      <div style={{ padding: '14px 22px 22px' }}>
+      <div style={{ padding: '14px 22px 22px', display: 'flex', flexDirection: 'column', gap: 10 }}>
         <Button
           label="모임 상세로 이동"
           onClick={() => navigate('/meetings/1')}
+          style={{ width: '100%' }}
+        />
+        <Button
+          variant="outline"
+          label="홈으로"
+          onClick={() => navigate('/')}
           style={{ width: '100%' }}
         />
       </div>
