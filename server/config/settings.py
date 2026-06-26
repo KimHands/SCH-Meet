@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 import os
+from pathlib import Path as _Path
 from pathlib import Path
 import sys
 
@@ -21,7 +22,7 @@ sys.path.insert(0, os.path.join(BASE_DIR, 'apps'))
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-tk8(z+y%)hq0v2^s!b_hyi&$n@#hkn)^9xx7!v#(1=u5fhl!y-'
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-tk8(z+y%)hq0v2^s!b_hyi&$n@#hkn)^9xx7!v#(1=u5fhl!y-')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -132,3 +133,25 @@ CSRF_TRUSTED_ORIGINS = [
 ]
 
 CORS_ALLOW_CREDENTIALS = True
+
+# Google OAuth settings (read from environment)
+GOOGLE_CLIENT_ID = os.environ.get('GOOGLE_CLIENT_ID')
+GOOGLE_CLIENT_SECRET = os.environ.get('GOOGLE_CLIENT_SECRET')
+
+# Optionally load .env file in development if present
+_env_path = _Path(__file__).resolve().parent.parent / '.env'
+if _env_path.exists():
+    try:
+        with open(_env_path, 'r', encoding='utf-8') as f:
+            for line in f:
+                if not line.strip() or line.strip().startswith('#'):
+                    continue
+                key, _, val = line.strip().partition('=')
+                if key and val and key not in os.environ:
+                    os.environ[key] = val
+    except Exception:
+        pass
+
+# Re-read GOOGLE vars in case .env was loaded
+GOOGLE_CLIENT_ID = os.environ.get('GOOGLE_CLIENT_ID')
+GOOGLE_CLIENT_SECRET = os.environ.get('GOOGLE_CLIENT_SECRET')
