@@ -59,6 +59,12 @@ class Meeting(models.Model):
     capacity = models.PositiveIntegerField(default=2)
     creator = models.ForeignKey(User, on_delete=models.CASCADE, related_name='created_meetings')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='OPEN')
+    confirmed_recommendation_id = models.PositiveIntegerField(null=True, blank=True)
+    confirmed_day = models.CharField(max_length=3, blank=True, default='')
+    confirmed_start_minute = models.PositiveIntegerField(null=True, blank=True)
+    confirmed_end_minute = models.PositiveIntegerField(null=True, blank=True)
+    confirmed_location = models.CharField(max_length=200, blank=True, default='')
+    confirmed_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
