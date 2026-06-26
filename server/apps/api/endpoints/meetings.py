@@ -5,11 +5,166 @@ import datetime
 from django.utils import timezone
 from django.conf import settings
 from django.views.decorators.csrf import csrf_exempt
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
 
 from ..models import Meeting, MeetingMember, InviteToken
 from .common import method_not_allowed, not_implemented
 from .user import _get_authorized_user
+
+
+def _get_profile_display_name(user):
+    profile = getattr(user, 'profile', None)
+    if profile and getattr(profile, 'nickname', ''):
+        return profile.nickname
+    return user.username or f'user-{user.id}'
+
+
+def _serialize_meeting_member(member):
+    user = member.user
+    profile = getattr(user, 'profile', None)
+    return {
+        'user_id': user.id,
+        'nickname': getattr(profile, 'nickname', '') or user.username,
+        'profile_image_url': getattr(profile, 'profile_image_url', ''),
+        'role': member.role,
+        'is_creator': member.role == 'CREATOR',
+    }
+
+
+def _serialize_meeting_summary(meeting, user_member):
+    participant_count = meeting.members.count()
+    return {
+        'meeting_id': meeting.id,
+        'id': meeting.id,
+        'name': meeting.name,
+        'title': meeting.name,
+        'purpose': meeting.purpose,
+        'desired_time': meeting.desired_time,
+        'desired_location': meeting.desired_location,
+        'latitude': meeting.latitude,
+        'longitude': meeting.longitude,
+        'capacity': meeting.capacity,
+        'max_members': meeting.capacity,
+        'status': meeting.status,
+        'is_creator': user_member.role == 'CREATOR',
+        'role': user_member.role,
+        'participant_count': participant_count,
+        'participants_count': participant_count,
+        'creator_name': _get_profile_display_name(meeting.creator),
+        'created_at': meeting.created_at.isoformat(),
+    }
+
+
+def _serialize_meeting_detail(meeting):
+    members = list(meeting.members.select_related('user').all())
+    member_list = [_serialize_meeting_member(member) for member in members]
+    return {
+        'meeting_id': meeting.id,
+        'id': meeting.id,
+        'meeting_name': meeting.name,
+        'name': meeting.name,
+        'title': meeting.name,
+        'purpose': meeting.purpose,
+        'desired_time': meeting.desired_time,
+        'desired_location': meeting.desired_location,
+        'latitude': meeting.latitude,
+        'longitude': meeting.longitude,
+        'capacity': meeting.capacity,
+        'max_members': meeting.capacity,
+        'status': meeting.status,
+        'creator_name': _get_profile_display_name(meeting.creator),
+        'creator_role': 'CREATOR',
+        'current_participants_count': len(member_list),
+        'participant_count': len(member_list),
+        'members': member_list,
+        'existing_members': [
+            {
+                'nickname': member['nickname'],
+                'profile_image_url': member['profile_image_url'],
+            }
+            for member in member_list
+        ],
+        'recommended_slots': [],
+        'created_at': meeting.created_at.isoformat(),
+    }
+
+
+def _get_meeting_for_user_or_403(user, meeting_id):
+    meeting = Meeting.objects.filter(id=meeting_id).select_related('creator').first()
+    if not meeting:
+        return None, JsonResponse({'detail': 'Meeting not found'}, status=404)
+
+    membership = MeetingMember.objects.filter(meeting=meeting, user=user).first()
+    if not membership:
+        return None, JsonResponse({'detail': 'Forbidden'}, status=403)
+
+    return (meeting, membership), None
+
+
+def _validate_meeting_payload(body, meeting=None):
+    updates = {}
+
+    if 'name' in body:
+        name = body.get('name')
+        if not name or not isinstance(name, str):
+            return None, JsonResponse({'detail': 'Missing or invalid name'}, status=400)
+        if len(name) > 100:
+            return None, JsonResponse({'detail': 'Meeting name too long'}, status=400)
+        updates['name'] = name
+
+    if 'purpose' in body:
+        purpose = body.get('purpose')
+        if purpose is not None and not isinstance(purpose, str):
+            return None, JsonResponse({'detail': 'purpose must be a string'}, status=400)
+        updates['purpose'] = purpose or ''
+
+    if 'desired_time' in body:
+        desired_time = body.get('desired_time')
+        if desired_time is not None and not isinstance(desired_time, str):
+            return None, JsonResponse({'detail': 'desired_time must be a string'}, status=400)
+        updates['desired_time'] = desired_time or ''
+
+    if 'desired_location' in body:
+        desired_location = body.get('desired_location')
+        if desired_location is not None and not isinstance(desired_location, str):
+            return None, JsonResponse({'detail': 'desired_location must be a string'}, status=400)
+        updates['desired_location'] = desired_location or ''
+
+    if 'latitude' in body:
+        latitude = body.get('latitude')
+        if latitude is None or latitude == '':
+            updates['latitude'] = None
+        else:
+            try:
+                updates['latitude'] = float(latitude)
+            except Exception:
+                return None, JsonResponse({'detail': 'latitude must be a number'}, status=400)
+
+    if 'longitude' in body:
+        longitude = body.get('longitude')
+        if longitude is None or longitude == '':
+            updates['longitude'] = None
+        else:
+            try:
+                updates['longitude'] = float(longitude)
+            except Exception:
+                return None, JsonResponse({'detail': 'longitude must be a number'}, status=400)
+
+    if 'capacity' in body:
+        capacity = body.get('capacity')
+        if capacity is None or capacity == '':
+            return None, JsonResponse({'detail': 'capacity must be provided'}, status=400)
+        try:
+            capacity = int(capacity)
+        except Exception:
+            return None, JsonResponse({'detail': 'capacity must be an integer'}, status=400)
+        if capacity < 2:
+            return None, JsonResponse({'detail': 'capacity must be at least 2'}, status=400)
+        if meeting and meeting.members.count() > capacity:
+            return None, JsonResponse({'detail': 'capacity cannot be smaller than current participants'}, status=400)
+        updates['capacity'] = capacity
+
+    return updates, None
 
 
 @csrf_exempt
@@ -17,7 +172,27 @@ def meetings_collection(request):
     if request.method not in ['GET', 'POST']:
         return method_not_allowed()
     if request.method == 'GET':
-        return not_implemented('B-10 /api/meetings/')
+        user, error_response = _get_authorized_user(request)
+        if error_response:
+            return error_response
+
+        status_filter = request.GET.get('status', 'active').strip().lower()
+        if status_filter not in ['active', 'ended']:
+            return JsonResponse({'detail': 'Invalid status filter'}, status=400)
+
+        if status_filter == 'active':
+            meeting_statuses = ['OPEN', 'CONFIRMED']
+        else:
+            meeting_statuses = ['CLOSED']
+
+        memberships = (
+            MeetingMember.objects.filter(user=user, meeting__status__in=meeting_statuses)
+            .select_related('meeting', 'meeting__creator')
+            .order_by('-meeting__created_at')
+        )
+
+        meetings = [_serialize_meeting_summary(membership.meeting, membership) for membership in memberships]
+        return JsonResponse(meetings, safe=False, status=200)
 
     # POST -> create meeting (B-07)
     user, error_response = _get_authorized_user(request)
@@ -93,7 +268,46 @@ def meetings_collection(request):
 def meeting_detail(request, meeting_id):
     if request.method not in ['GET', 'PATCH', 'DELETE']:
         return method_not_allowed()
-    return not_implemented(f'B-10 and B-11 /api/meetings/{meeting_id}/')
+
+    user, error_response = _get_authorized_user(request)
+    if error_response:
+        return error_response
+
+    payload, permission_error = _get_meeting_for_user_or_403(user, meeting_id)
+    if permission_error:
+        return permission_error
+
+    meeting, membership = payload
+
+    if request.method == 'GET':
+        return JsonResponse(_serialize_meeting_detail(meeting), status=200)
+
+    if request.method == 'PATCH':
+        if membership.role != 'CREATOR':
+            return JsonResponse({'detail': 'Forbidden'}, status=403)
+
+        try:
+            body = json.loads(request.body.decode() or '{}')
+        except Exception:
+            return JsonResponse({'detail': 'Invalid JSON body'}, status=400)
+
+        updates, validation_error = _validate_meeting_payload(body, meeting=meeting)
+        if validation_error:
+            return validation_error
+
+        for field_name, value in updates.items():
+            setattr(meeting, field_name, value)
+        meeting.save()
+
+        refreshed_meeting = Meeting.objects.select_related('creator').get(id=meeting.id)
+        return JsonResponse(_serialize_meeting_detail(refreshed_meeting), status=200)
+
+    if membership.role != 'CREATOR':
+        membership.delete()
+        return HttpResponse(status=204)
+
+    meeting.delete()
+    return HttpResponse(status=204)
 
 
 @csrf_exempt
