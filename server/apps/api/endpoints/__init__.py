@@ -1,8 +1,6 @@
-from .endpoints import (
-    auth_login,
-    dashboard_summary,
-    fixed_schedule_detail,
-    fixed_schedules,
+from .auth import auth_login
+from .dashboard import dashboard_summary
+from .meetings import (
     meeting_confirm,
     meeting_confirmed,
     meeting_detail,
@@ -10,13 +8,11 @@ from .endpoints import (
     meeting_invite_join,
     meeting_recommendations,
     meetings_collection,
-    notification_read,
-    notifications_collection,
-    timetable_upload_image,
-    timetable_upload_url,
-    consolidated_timetables,
-    user_me,
 )
+from .notifications import notification_read, notifications_collection
+from .schedules import fixed_schedule_detail, fixed_schedules
+from .timetables import consolidated_timetables, timetable_upload_image, timetable_upload_url
+from .user import user_me
 
 __all__ = [
     'auth_login',
