@@ -4,6 +4,7 @@ import jwt
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
 
 from ..models import UserProfile
 from .common import method_not_allowed
@@ -53,6 +54,7 @@ def _serialize_user(user, profile):
     }
 
 
+@csrf_exempt
 def user_me(request):
     if request.method not in ['GET', 'PATCH']:
         return method_not_allowed()
