@@ -9,6 +9,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.http import HttpResponse, JsonResponse
 
 from ..models import FixedSchedule, InviteToken, Meeting, MeetingMember, TimetableClass
+from ..models import Notification
 from .common import method_not_allowed, not_implemented
 from .user import _get_authorized_user
 
@@ -48,6 +49,16 @@ def _serialize_meeting_member(member):
         'role': member.role,
         'is_creator': member.role == 'CREATOR',
     }
+
+
+def _create_notification(user, kind, title, body='', related_meeting=None):
+    return Notification.objects.create(
+        user=user,
+        kind=kind,
+        title=title,
+        body=body,
+        related_meeting=related_meeting,
+    )
 
 
 def _serialize_meeting_summary(meeting, user_member):
@@ -589,6 +600,14 @@ def meetings_collection(request):
         # Add creator as meeting member with creator role
         MeetingMember.objects.create(meeting=meeting, user=user, role='CREATOR')
 
+        _create_notification(
+            user=user,
+            kind='MEETING_CREATED',
+            title='모임이 생성되었습니다',
+            body=f'"{meeting.name}" 모임 초대 링크가 생성되었습니다.',
+            related_meeting=meeting,
+        )
+
         # Generate invite token
         token = secrets.token_urlsafe(16)
         # ensure uniqueness
@@ -747,6 +766,14 @@ def meeting_invite_join(request, token):
             latitude=float(pref_lat) if pref_lat is not None else None,
             longitude=float(pref_lng) if pref_lng is not None else None,
         )
+
+        _create_notification(
+            user=meeting.creator,
+            kind='MEETING_JOINED',
+            title='새 참여 요청이 도착했습니다',
+            body=f'"{meeting.name}" 모임에 새로운 참여자가 합류했습니다.',
+            related_meeting=meeting,
+        )
         return JsonResponse({'detail': 'Joined successfully'}, status=200)
     except Exception as e:
         return JsonResponse({'detail': 'Internal server error', 'error': str(e)}, status=500)
@@ -859,6 +886,15 @@ def meeting_confirm(request, meeting_id):
     meeting.save()
 
     _sync_confirmed_meeting_to_timetables(meeting)
+
+    for member in meeting.members.select_related('user').all():
+        _create_notification(
+            user=member.user,
+            kind='MEETING_CONFIRMED',
+            title='모임 일정이 확정되었습니다',
+            body=f'"{meeting.name}" 모임이 {selected_recommendation["day_label"]} {selected_recommendation["start_time"]}에 확정되었습니다.',
+            related_meeting=meeting,
+        )
 
     return JsonResponse(_serialize_confirmed_meeting(meeting), status=200)
 

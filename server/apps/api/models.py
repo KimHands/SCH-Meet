@@ -100,3 +100,23 @@ class InviteToken(models.Model):
 
     def __str__(self):
         return f'InviteToken(token={self.token}, meeting_id={self.meeting_id})'
+
+
+class Notification(models.Model):
+    KIND_CHOICES = [
+        ('MEETING_CREATED', 'Meeting Created'),
+        ('MEETING_JOINED', 'Meeting Joined'),
+        ('MEETING_CONFIRMED', 'Meeting Confirmed'),
+        ('SYSTEM', 'System'),
+    ]
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='notifications')
+    kind = models.CharField(max_length=30, choices=KIND_CHOICES, default='SYSTEM')
+    title = models.CharField(max_length=200)
+    body = models.TextField(blank=True, default='')
+    related_meeting = models.ForeignKey(Meeting, on_delete=models.CASCADE, null=True, blank=True, related_name='notifications')
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f'Notification(user_id={self.user_id}, kind={self.kind}, title={self.title})'
