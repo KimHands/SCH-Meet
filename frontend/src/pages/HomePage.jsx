@@ -7,29 +7,34 @@ import Icon from '../components/Icon';
 import { getDashboardSummary } from '../api/dashboard';
 import { getMeetings } from '../api/meetings';
 import { getMyProfile } from '../api/auth';
+import { getConsolidatedTimetable } from '../api/timetable';
 
 const DAYS = ['월', '화', '수', '목', '금', '토', '일'];
-const HOURS = ['09', '12', '15', '18', '21'];
-// 캘린더 미니 그리드 - 장식용 고정 이벤트 블록
-const EVENTS = [
-  { left: '6%',  top: 8,  w: '10%', h: 30, c: colors.primaryFixedDim },
-  { left: '34%', top: 20, w: '10%', h: 24, c: colors.primaryFixed },
-  { left: '48%', top: 50, w: '10%', h: 34, c: colors.primary },
-  { left: '62%', top: 30, w: '10%', h: 26, c: colors.primaryFixedDim },
-  { left: '20%', top: 64, w: '10%', h: 30, c: colors.tertiaryFixedDim },
-  { left: '76%', top: 74, w: '10%', h: 22, c: colors.primaryFixed },
-];
+const DAY_CODES = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
+const MINI_START = 8;   // 08시 기준
+const MINI_END   = 22;  // 22시 기준
+const MINI_TOTAL = MINI_END - MINI_START; // 14시간
+const MINI_HEIGHT = 160; // 미니 그리드 전체 높이 (px)
+
+const blockColor = (item) => {
+  if (item?.kind === 'fixed_schedule') return colors.tertiaryFixed;
+  if (item?.source === 'meeting')      return colors.primary;
+  return colors.primaryFixedDim;
+};
+const blockTextColor = (item) => item?.source === 'meeting' ? '#fff' : colors.onSurface;
 
 export default function HomePage() {
   const navigate = useNavigate();
   const [nickname, setNickname] = useState('');
   const [summary, setSummary] = useState(null);
   const [meetings, setMeetings] = useState([]);
+  const [timetable, setTimetable] = useState(null);
 
   useEffect(() => {
     getMyProfile().then((p) => setNickname(p.nickname || p.email?.split('@')[0] || '')).catch(() => {});
     getDashboardSummary().then(setSummary).catch(() => {});
     getMeetings('active').then(setMeetings).catch(() => setMeetings([]));
+    getConsolidatedTimetable().then(setTimetable).catch(() => {});
   }, []);
 
   const summaryCards = [
@@ -93,33 +98,63 @@ export default function HomePage() {
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center' }}>
-            <div style={{ width: 26 }} />
+            <div style={{ width: 22 }} />
             {DAYS.map((d) => (
               <span key={d} style={{ flex: 1, fontSize: 9, fontWeight: '500', color: colors.outline, textAlign: 'center' }}>{d}</span>
             ))}
           </div>
-          <div style={{ display: 'flex', marginTop: 5 }}>
-            <div style={{
-              width: 26, height: 118,
-              display: 'flex', flexDirection: 'column',
-              justifyContent: 'space-between',
-              paddingTop: 2, paddingBottom: 14,
-              alignItems: 'flex-end', paddingRight: 4,
-            }}>
-              {HOURS.map((h) => (
-                <span key={h} style={{ fontSize: 8, fontWeight: '500', color: '#a9abb6' }}>{h}</span>
+          <div style={{ display: 'flex', marginTop: 4 }}>
+            {/* 시간 레이블 */}
+            <div style={{ width: 22, flexShrink: 0, position: 'relative', height: MINI_HEIGHT }}>
+              {[9, 12, 15, 18, 20].map((h) => (
+                <span key={h} style={{
+                  position: 'absolute',
+                  top: ((h - MINI_START) / MINI_TOTAL) * MINI_HEIGHT - 5,
+                  right: 3,
+                  fontSize: 7, color: '#a9abb6',
+                }}>{h}</span>
               ))}
             </div>
-            <div style={{ flex: 1, height: 118, borderLeft: `1px solid ${colors.surfaceContainer}`, position: 'relative' }}>
-              {EVENTS.map((e, i) => (
-                <div key={i} style={{
-                  position: 'absolute',
-                  left: e.left, top: e.top,
-                  width: e.w, height: e.h,
-                  backgroundColor: e.c,
-                  borderRadius: 3,
-                }} />
-              ))}
+            {/* 요일별 컬럼 */}
+            <div style={{ flex: 1, display: 'flex', height: MINI_HEIGHT, borderLeft: `1px solid ${colors.surfaceContainer}` }}>
+              {DAY_CODES.map((code) => {
+                const blocks = timetable?.[code] ?? [];
+                return (
+                  <div key={code} style={{ flex: 1, position: 'relative', borderRight: `1px solid ${colors.surfaceContainerHighest}` }}>
+                    {blocks.map((block, i) => {
+                      const mainItem = block.items?.[0];
+                      if (!mainItem) return null;
+                      const topPct = ((block.start_minute / 60 - MINI_START) / MINI_TOTAL) * 100;
+                      const heightPct = (((block.end_minute - block.start_minute) / 60) / MINI_TOTAL) * 100;
+                      return (
+                        <div key={i} style={{
+                          position: 'absolute',
+                          top: `${topPct}%`,
+                          height: `${Math.max(heightPct, 4)}%`,
+                          left: 1, right: 1,
+                          backgroundColor: blockColor(mainItem),
+                          borderRadius: 2,
+                          overflow: 'hidden',
+                          padding: '1px 2px',
+                        }}>
+                          <span style={{
+                            fontSize: 6,
+                            fontWeight: '600',
+                            color: blockTextColor(mainItem),
+                            lineHeight: '8px',
+                            display: 'block',
+                            overflow: 'hidden',
+                            whiteSpace: 'nowrap',
+                            textOverflow: 'ellipsis',
+                          }}>
+                            {block.items.map((it) => it.title).join(', ')}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>
