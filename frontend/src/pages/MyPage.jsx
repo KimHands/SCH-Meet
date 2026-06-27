@@ -1,7 +1,10 @@
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { colors } from '../styles/theme';
 import BottomNav from '../components/BottomNav';
 import Icon from '../components/Icon';
+import { getMyProfile } from '../api/auth';
+import { token } from '../utils/token';
 
 const INFO_ITEMS = [
   { icon: 'calendar_view_week', label: '시간표 관리',   path: '/upload-timetable' },
@@ -11,9 +14,17 @@ const INFO_ITEMS = [
 
 export default function MyPage() {
   const navigate = useNavigate();
+  const [profile, setProfile] = useState(null);
+
+  useEffect(() => {
+    getMyProfile()
+      .then(setProfile)
+      .catch(() => {}); // 에러 시 더미 UI 유지
+  }, []);
 
   const handleLogout = () => {
     if (window.confirm('로그아웃 하시겠어요?')) {
+      token.remove();
       navigate('/login');
     }
   };
@@ -21,7 +32,6 @@ export default function MyPage() {
   return (
     <div style={{ height: '100vh', backgroundColor: colors.surface, display: 'flex', flexDirection: 'column' }}>
 
-      {/* 스크롤 영역 */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '8px 20px 80px' }}>
 
         <p style={{ marginTop: 4, fontSize: 22, fontWeight: '700', color: colors.onSurface }}>마이페이지</p>
@@ -34,16 +44,29 @@ export default function MyPage() {
           border: `1px solid ${colors.surfaceContainerHighest}`,
           borderRadius: 16, padding: 16,
         }}>
-          <div style={{
-            width: 54, height: 54, borderRadius: 9999,
-            backgroundColor: colors.secondaryContainer,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
-            <Icon name="person" size={30} color={colors.secondary} />
-          </div>
+          {/* 프로필 이미지 */}
+          {profile?.profile_image_url ? (
+            <img
+              src={profile.profile_image_url}
+              alt="프로필"
+              style={{ width: 54, height: 54, borderRadius: 9999, objectFit: 'cover' }}
+            />
+          ) : (
+            <div style={{
+              width: 54, height: 54, borderRadius: 9999,
+              backgroundColor: colors.secondaryContainer,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <Icon name="person" size={30} color={colors.secondary} />
+            </div>
+          )}
           <div>
-            <p style={{ fontSize: 17, fontWeight: '700', color: colors.onSurface }}>OOO</p>
-            <p style={{ fontSize: 13, color: colors.outline, marginTop: 2 }}>sojung@example.com</p>
+            <p style={{ fontSize: 17, fontWeight: '700', color: colors.onSurface }}>
+              {profile?.nickname || profile?.email?.split('@')[0] || 'OOO'}
+            </p>
+            <p style={{ fontSize: 13, color: colors.outline, marginTop: 2 }}>
+              {profile?.email || ''}
+            </p>
           </div>
         </div>
 
