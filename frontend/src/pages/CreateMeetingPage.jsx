@@ -4,6 +4,7 @@ import { colors } from '../styles/theme';
 import AppBar from '../components/AppBar';
 import Button from '../components/Button';
 import Icon from '../components/Icon';
+import { createMeeting } from '../api/meetings';
 
 const PURPOSE_OPTIONS = ['조용한 회의', '스터디', '조별 과제', '친목 모임', '기타'];
 const CAPACITY_OPTIONS = ['2명', '3명', '4명', '5명', '6명', '7명', '8명 이상'];
@@ -111,6 +112,7 @@ export default function CreateMeetingPage() {
   const [location, setLocation] = useState('');
   const [capacity, setCapacity] = useState('');
   const [errors, setErrors] = useState({});
+  const [loading, setLoading] = useState(false);
 
   const validate = () => {
     const newErrors = {};
@@ -123,8 +125,33 @@ export default function CreateMeetingPage() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = () => {
-    if (validate()) navigate('/meetings/1');
+  const handleSubmit = async () => {
+    if (!validate()) return;
+    setLoading(true);
+    try {
+      // "4명" → 4, "8명 이상" → 8
+      const capacityNum = parseInt(capacity.replace(/[^0-9]/g, ''), 10);
+      const finalPurpose = purpose === '기타' ? customPurpose.trim() : purpose;
+
+      const result = await createMeeting({
+        name: name.trim(),
+        purpose: finalPurpose,
+        desired_time: time.trim(),
+        desired_location: location.trim(),
+        capacity: capacityNum,
+      });
+
+      // 초대 링크를 로컬스토리지에 저장해두기 (초대 페이지에서 사용)
+      if (result.invite_link) {
+        localStorage.setItem(`invite_link_${result.meeting_id}`, result.invite_link);
+      }
+
+      navigate(`/meetings/${result.meeting_id}`);
+    } catch (e) {
+      setErrors({ submit: e.message || '모임 생성 중 오류가 발생했습니다.' });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -215,7 +242,14 @@ export default function CreateMeetingPage() {
       </div>
 
       <div style={{ padding: '14px 20px 18px' }}>
-        <Button label="초대 링크 생성" onClick={handleSubmit} style={{ width: '100%' }} />
+        {errors.submit && (
+          <p style={{ marginBottom: 8, fontSize: 12, color: colors.error, textAlign: 'center' }}>{errors.submit}</p>
+        )}
+        <Button
+          label={loading ? '생성 중...' : '초대 링크 생성'}
+          onClick={handleSubmit}
+          style={{ width: '100%', opacity: loading ? 0.6 : 1 }}
+        />
       </div>
 
     </div>
