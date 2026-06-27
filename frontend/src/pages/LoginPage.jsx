@@ -11,25 +11,12 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    // Google Identity Services 초기화
-    if (!window.google) return;
-
-    window.google.accounts.id.initialize({
-      client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
-      callback: handleCredentialResponse,
-    });
-  }, []);
-
-  // 구글 로그인 성공 시 호출되는 콜백
   const handleCredentialResponse = async (response) => {
     setLoading(true);
     setError('');
     try {
-      const data = await loginWithGoogle(response.credential); // id_token 전달
-      token.save(data.access); // localStorage에 토큰 저장
-
-      // 신규 회원 → 시간표 업로드, 기존 회원 → 홈
+      const data = await loginWithGoogle(response.credential);
+      token.save(data.access);
       if (data.is_new_user) {
         navigate('/upload-timetable');
       } else {
@@ -42,13 +29,28 @@ export default function LoginPage() {
     }
   };
 
-  const handleGoogleLogin = () => {
-    if (!window.google) {
-      setError('구글 로그인을 불러오는 중입니다. 잠시 후 다시 시도해주세요.');
-      return;
+  useEffect(() => {
+    const initGoogle = () => {
+      if (!window.google) return;
+      window.google.accounts.id.initialize({
+        client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
+        callback: handleCredentialResponse,
+      });
+      // 버튼을 구글이 직접 렌더링 — FedCM 팝업 방식보다 안정적
+      window.google.accounts.id.renderButton(
+        document.getElementById('google-btn'),
+        { theme: 'outline', size: 'large', width: 334, text: 'signin_with', shape: 'pill' }
+      );
+    };
+
+    if (window.google) {
+      initGoogle();
+    } else {
+      // 스크립트 로드 완료 후 초기화
+      const script = document.querySelector('script[src*="gsi/client"]');
+      if (script) script.addEventListener('load', initGoogle);
     }
-    window.google.accounts.id.prompt(); // 구글 계정 선택 팝업
-  };
+  }, []);
 
   return (
     <div style={{
@@ -111,16 +113,11 @@ export default function LoginPage() {
         alignItems: 'center',
         gap: 22,
       }}>
-        <Button
-          variant="outline"
-          onClick={handleGoogleLogin}
-          style={{ width: '100%', opacity: loading ? 0.6 : 1 }}
-        >
-          <img src="/google-logo.svg" alt="Google" style={{ width: 28, height: 28 }} />
-          <span style={{ fontSize: 15, fontWeight: '600', color: colors.onSurface }}>
-            {loading ? '로그인 중...' : 'Google로 로그인'}
-          </span>
-        </Button>
+        {/* 구글이 직접 렌더링하는 버튼 */}
+        <div id="google-btn" style={{ display: 'flex', justifyContent: 'center', width: '100%' }} />
+        {loading && (
+          <p style={{ fontSize: 13, color: colors.secondary }}>로그인 중...</p>
+        )}
 
         {/* 에러 메시지 */}
         {error && (
