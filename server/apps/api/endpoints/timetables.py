@@ -10,6 +10,7 @@ from django.views.decorators.csrf import csrf_exempt
 from ..models import FixedSchedule, TimetableClass
 from .common import method_not_allowed, not_implemented
 from .user import _get_authorized_user
+from . import ocr
 
 
 EVERYTIME_HOSTS = {'everytime.kr', 'www.everytime.kr', 'm.everytime.kr'}
@@ -236,10 +237,41 @@ def timetable_upload_url(request):
     )
 
 
+MAX_IMAGE_BYTES = 1024 * 1024  # OCR.space 무료 한도 1MB
+
+
+@csrf_exempt
 def timetable_upload_image(request):
     if request.method != 'POST':
         return method_not_allowed()
-    return not_implemented('B-04 /api/timetables/upload-image/')
+
+    user, error_response = _get_authorized_user(request)
+    if error_response:
+        return error_response
+
+    upload = request.FILES.get('file')
+    if not upload or upload.size == 0:
+        return JsonResponse({'detail': '파일이 필요합니다'}, status=400)
+    if upload.size > MAX_IMAGE_BYTES:
+        return JsonResponse({'detail': '이미지는 1MB 이하만 가능합니다'}, status=413)
+
+    try:
+        words = ocr.call_ocr_space(upload.read(), upload.name)
+    except ocr.OcrNotConfigured:
+        return JsonResponse({'detail': 'OCR 기능이 설정되지 않았습니다'}, status=503)
+    except ocr.OcrServiceError:
+        return JsonResponse({'detail': 'OCR 서비스 연결에 실패했습니다'}, status=502)
+
+    parsed = ocr.parse_timetable_grid(words)
+    return JsonResponse(
+        {
+            'status': 'parsed',
+            'parsed_classes_count': len(parsed['classes']),
+            'parsed_classes': parsed['classes'],
+            'warnings': parsed['warnings'],
+        },
+        status=200,
+    )
 
 
 def consolidated_timetables(request):
