@@ -10,24 +10,40 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 import os
-from pathlib import Path as _Path
 from pathlib import Path
 import sys
+
+from django.core.exceptions import ImproperlyConfigured
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, os.path.join(BASE_DIR, 'apps'))
 
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
+# 환경변수 기반 설정을 읽기 전에 .env 파일을 먼저 로드한다(개발 편의).
+_env_path = BASE_DIR / '.env'
+if _env_path.exists():
+    try:
+        with open(_env_path, 'r', encoding='utf-8') as f:
+            for line in f:
+                if not line.strip() or line.strip().startswith('#'):
+                    continue
+                key, _, val = line.strip().partition('=')
+                if key and val and key not in os.environ:
+                    os.environ[key] = val
+    except Exception:
+        pass
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-tk8(z+y%)hq0v2^s!b_hyi&$n@#hkn)^9xx7!v#(1=u5fhl!y-')
+# 안전하지 않은 기본값 폴백을 제거 — 미설정 시 기동을 중단한다.
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY')
+if not SECRET_KEY:
+    raise ImproperlyConfigured(
+        'DJANGO_SECRET_KEY 환경변수가 설정되지 않았습니다. .env 또는 환경변수로 강력한 키를 주입하세요.'
+    )
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.environ.get('DJANGO_DEBUG', 'False').lower() in ('1', 'true', 'yes', 'on')
 
-ALLOWED_HOSTS = []
 ALLOWED_HOSTS = ['localhost', '127.0.0.1', '[::1]']
 
 
@@ -138,25 +154,7 @@ CSRF_TRUSTED_ORIGINS = [
 
 CORS_ALLOW_CREDENTIALS = True
 
-# Google OAuth settings (read from environment)
-GOOGLE_CLIENT_ID = os.environ.get('GOOGLE_CLIENT_ID')
-GOOGLE_CLIENT_SECRET = os.environ.get('GOOGLE_CLIENT_SECRET')
-
-# Optionally load .env file in development if present
-_env_path = _Path(__file__).resolve().parent.parent / '.env'
-if _env_path.exists():
-    try:
-        with open(_env_path, 'r', encoding='utf-8') as f:
-            for line in f:
-                if not line.strip() or line.strip().startswith('#'):
-                    continue
-                key, _, val = line.strip().partition('=')
-                if key and val and key not in os.environ:
-                    os.environ[key] = val
-    except Exception:
-        pass
-
-# Re-read GOOGLE vars in case .env was loaded
+# Google OAuth settings (read from environment; .env는 파일 상단에서 이미 로드됨)
 GOOGLE_CLIENT_ID = os.environ.get('GOOGLE_CLIENT_ID')
 GOOGLE_CLIENT_SECRET = os.environ.get('GOOGLE_CLIENT_SECRET')
 
