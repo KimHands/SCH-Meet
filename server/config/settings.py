@@ -45,6 +45,12 @@ if not SECRET_KEY:
 DEBUG = os.environ.get('DJANGO_DEBUG', 'False').lower() in ('1', 'true', 'yes', 'on')
 
 ALLOWED_HOSTS = ['localhost', '127.0.0.1', '[::1]']
+# 운영 호스트: 콤마 구분 DJANGO_ALLOWED_HOSTS + Render 자동 호스트명
+_extra_hosts = os.environ.get('DJANGO_ALLOWED_HOSTS', '')
+ALLOWED_HOSTS += [h.strip() for h in _extra_hosts.split(',') if h.strip()]
+_render_host = os.environ.get('RENDER_EXTERNAL_HOSTNAME')
+if _render_host:
+    ALLOWED_HOSTS.append(_render_host)
 
 
 # Application definition
@@ -62,6 +68,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -101,6 +108,15 @@ DATABASES = {
     }
 }
 
+# 운영: DATABASE_URL(예: Render Postgres)이 설정되면 우선 사용
+_database_url = os.environ.get('DATABASE_URL')
+if _database_url:
+    import dj_database_url
+
+    DATABASES['default'] = dj_database_url.parse(
+        _database_url, conn_max_age=600, ssl_require=True
+    )
+
 
 # Password validation
 # https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators
@@ -137,6 +153,15 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+STORAGES = {
+    'default': {
+        'BACKEND': 'django.core.files.storage.FileSystemStorage',
+    },
+    'staticfiles': {
+        'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage',
+    },
+}
 
 CORS_ALLOWED_ORIGINS = [
     'http://localhost:5173',
@@ -151,6 +176,11 @@ CSRF_TRUSTED_ORIGINS = [
     'http://localhost:5174',
     'http://127.0.0.1:5174',
 ]
+
+# 운영 프론트 도메인(예: https://sch-meet.vercel.app): 콤마 구분 FRONTEND_ORIGINS
+_frontend_origins = [o.strip() for o in os.environ.get('FRONTEND_ORIGINS', '').split(',') if o.strip()]
+CORS_ALLOWED_ORIGINS += _frontend_origins
+CSRF_TRUSTED_ORIGINS += _frontend_origins
 
 CORS_ALLOW_CREDENTIALS = True
 

@@ -1,0 +1,40 @@
+# Render 블루프린트 — Django API + 무료 Postgres
+# 사용: Render 대시보드 > New > Blueprint > 이 저장소 선택
+databases:
+  - name: schmeet-db
+    plan: free
+    databaseName: schmeet
+    user: schmeet
+
+services:
+  - type: web
+    name: schmeet-api
+    runtime: python
+    plan: free
+    rootDir: server
+    buildCommand: "./build.sh"
+    startCommand: "gunicorn config.wsgi:application --bind 0.0.0.0:$PORT"
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.6"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: schmeet-db
+          property: connectionString
+      - key: DJANGO_SECRET_KEY
+        generateValue: true       # Render가 강력한 키 자동 생성
+      - key: DJANGO_DEBUG
+        value: "False"
+      # 아래는 대시보드에서 직접 입력(배포 후 값 확정)
+      - key: DJANGO_ALLOWED_HOSTS
+        sync: false               # 예: schmeet-api.onrender.com
+      - key: FRONTEND_ORIGINS
+        sync: false               # 예: https://sch-meet.vercel.app
+      - key: FRONTEND_BASE_URL
+        sync: false               # 예: https://sch-meet.vercel.app
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: OCR_SPACE_API_KEY
+        sync: false               # 예: K82796185288957
