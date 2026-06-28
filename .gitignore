@@ -24,3 +24,7 @@ __pycache__/
 venv/
 .venv/
 *.sqlite3
+
+# Django collected static (배포 시 collectstatic으로 생성)
+staticfiles/
+.superpowers/
