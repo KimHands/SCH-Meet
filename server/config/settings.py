@@ -162,3 +162,6 @@ GOOGLE_CLIENT_SECRET = os.environ.get('GOOGLE_CLIENT_SECRET')
 
 # Frontend base URL for invite links (can be set via environment)
 FRONTEND_BASE_URL = os.environ.get('FRONTEND_BASE_URL', 'http://localhost:5173')
+
+# OCR.space API key for timetable image recognition
+OCR_SPACE_API_KEY = os.environ.get('OCR_SPACE_API_KEY', '')

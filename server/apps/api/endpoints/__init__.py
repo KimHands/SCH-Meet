@@ -11,7 +11,12 @@ from .meetings import (
 )
 from .notifications import notification_read, notifications_collection
 from .schedules import fixed_schedule_detail, fixed_schedules
-from .timetables import consolidated_timetables, timetable_upload_image, timetable_upload_url
+from .timetables import (
+    consolidated_timetables,
+    timetable_image_confirm,
+    timetable_upload_image,
+    timetable_upload_url,
+)
 from .user import user_me
 
 __all__ = [
@@ -19,6 +24,7 @@ __all__ = [
     'user_me',
     'timetable_upload_url',
     'timetable_upload_image',
+    'timetable_image_confirm',
     'fixed_schedules',
     'fixed_schedule_detail',
     'consolidated_timetables',

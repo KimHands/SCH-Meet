@@ -7,6 +7,7 @@ urlpatterns = [
     path('users/me/', views.user_me, name='user-me'),
     path('timetables/upload-url/', views.timetable_upload_url, name='timetable-upload-url'),
     path('timetables/upload-image/', views.timetable_upload_image, name='timetable-upload-image'),
+    path('timetables/image/confirm/', views.timetable_image_confirm, name='timetable-image-confirm'),
     path('schedules/fixed/', views.fixed_schedules, name='fixed-schedules'),
     path('schedules/fixed/<int:schedule_id>/', views.fixed_schedule_detail, name='fixed-schedule-detail'),
     path('timetables/consolidated/', views.consolidated_timetables, name='consolidated-timetables'),

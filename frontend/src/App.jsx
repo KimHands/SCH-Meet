@@ -6,6 +6,7 @@ import LoginPage from './pages/LoginPage';
 
 // 초기 설정 플로우
 import TimetableUploadPage from './pages/TimetableUploadPage';
+import TimetablePreviewPage from './pages/TimetablePreviewPage';
 import FixedSchedulePage from './pages/FixedSchedulePage';
 
 // 메인 탭
@@ -34,6 +35,7 @@ export default function App() {
 
       {/* 초기 설정 플로우 */}
       <Route path="/upload-timetable" element={<TimetableUploadPage />} />
+      <Route path="/upload-timetable/preview" element={<TimetablePreviewPage />} />
       <Route path="/add-schedule" element={<FixedSchedulePage />} />
 
       {/* 메인 탭 */}
