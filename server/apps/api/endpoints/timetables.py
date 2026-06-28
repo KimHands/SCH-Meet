@@ -274,6 +274,88 @@ def timetable_upload_image(request):
     )
 
 
+MAX_CONFIRM_CLASSES = 50
+_CLOCK_PATTERN = re.compile(r'^([01]?\d|2[0-3]):([0-5]\d)$')
+
+
+def _clock_to_minute(value):
+    if not isinstance(value, str):
+        return None
+    match = _CLOCK_PATTERN.match(value.strip())
+    if not match:
+        return None
+    return int(match.group(1)) * 60 + int(match.group(2))
+
+
+@csrf_exempt
+def timetable_image_confirm(request):
+    if request.method != 'POST':
+        return method_not_allowed()
+
+    user, error_response = _get_authorized_user(request)
+    if error_response:
+        return error_response
+
+    try:
+        body = json.loads(request.body.decode() or '{}')
+    except Exception:
+        return JsonResponse({'detail': 'Invalid JSON body'}, status=400)
+
+    raw_classes = body.get('classes')
+    if not isinstance(raw_classes, list):
+        return JsonResponse({'detail': 'classes must be a list'}, status=400)
+    if len(raw_classes) > MAX_CONFIRM_CLASSES:
+        return JsonResponse({'detail': f'최대 {MAX_CONFIRM_CLASSES}개까지 저장할 수 있습니다'}, status=400)
+
+    validated = []
+    for index, item in enumerate(raw_classes):
+        if not isinstance(item, dict):
+            return JsonResponse({'detail': f'{index}번째 항목 형식이 올바르지 않습니다'}, status=400)
+
+        name = (item.get('name') or '').strip()
+        if not name:
+            return JsonResponse({'detail': f'{index}번째 과목명이 비어 있습니다'}, status=400)
+
+        day = item.get('day')
+        if day not in ocr.DAY_CODES:
+            return JsonResponse({'detail': f'{index}번째 요일이 올바르지 않습니다'}, status=400)
+
+        start_minute = _clock_to_minute(item.get('start_time'))
+        end_minute = _clock_to_minute(item.get('end_time'))
+        if start_minute is None or end_minute is None:
+            return JsonResponse({'detail': f'{index}번째 시간 형식이 올바르지 않습니다'}, status=400)
+        if end_minute <= start_minute:
+            return JsonResponse({'detail': f'{index}번째 종료 시간이 시작보다 빠릅니다'}, status=400)
+
+        validated.append({
+            'name': name[:200],
+            'day': day,
+            'start_minute': start_minute,
+            'end_minute': end_minute,
+            'place': (item.get('place') or '')[:100],
+            'professor': (item.get('professor') or '')[:200],
+        })
+
+    with transaction.atomic():
+        TimetableClass.objects.filter(user=user, source='image').delete()
+        TimetableClass.objects.bulk_create([
+            TimetableClass(
+                user=user,
+                source='image',
+                name=entry['name'],
+                day=entry['day'],
+                start_minute=entry['start_minute'],
+                end_minute=entry['end_minute'],
+                place=entry['place'],
+                professor=entry['professor'],
+                time_label='이미지 인식',
+            )
+            for entry in validated
+        ])
+
+    return JsonResponse({'status': 'success', 'parsed_classes_count': len(validated)}, status=200)
+
+
 def consolidated_timetables(request):
     if request.method != 'GET':
         return method_not_allowed()

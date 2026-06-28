@@ -80,3 +80,95 @@ class UploadImageTest(TestCase):
     def tearDown(self):
         # 원본 함수 복구
         ocr.call_ocr_space = self._orig_call_ocr_space
+
+
+import json
+
+
+class ConfirmImageTest(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(username='lee', email='lee@test.com')
+        self.auth = {'HTTP_AUTHORIZATION': f'Bearer {_access_token(self.user)}'}
+
+    def _post(self, payload):
+        return self.client.post(
+            '/api/timetables/image/confirm/',
+            data=json.dumps(payload),
+            content_type='application/json',
+            **self.auth,
+        )
+
+    def test_requires_auth(self):
+        res = self.client.post('/api/timetables/image/confirm/',
+                               data='{}', content_type='application/json')
+        self.assertEqual(res.status_code, 401)
+
+    def test_saves_classes(self):
+        payload = {'classes': [
+            {'name': '자료구조', 'day': 'MON', 'start_time': '09:00', 'end_time': '10:00'},
+            {'name': '운영체제', 'day': 'TUE', 'start_time': '10:00', 'end_time': '11:00',
+             'place': '공학관', 'professor': '김교수'},
+        ]}
+        res = self._post(payload)
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.json()['parsed_classes_count'], 2)
+        saved = TimetableClass.objects.filter(user=self.user, source='image')
+        self.assertEqual(saved.count(), 2)
+        ds = saved.get(name='자료구조')
+        self.assertEqual(ds.day, 'MON')
+        self.assertEqual(ds.start_minute, 540)
+        self.assertEqual(ds.end_minute, 600)
+
+    def test_replaces_previous_image_classes(self):
+        TimetableClass.objects.create(
+            user=self.user, source='image', name='이전수업', day='MON',
+            start_minute=540, end_minute=600,
+        )
+        payload = {'classes': [
+            {'name': '새수업', 'day': 'WED', 'start_time': '13:00', 'end_time': '14:00'},
+        ]}
+        self._post(payload)
+        names = list(TimetableClass.objects.filter(user=self.user, source='image')
+                     .values_list('name', flat=True))
+        self.assertEqual(names, ['새수업'])
+
+    def test_does_not_touch_everytime_classes(self):
+        TimetableClass.objects.create(
+            user=self.user, source='everytime', name='에타수업', day='FRI',
+            start_minute=600, end_minute=660,
+        )
+        self._post({'classes': [{'name': 'x', 'day': 'MON',
+                                 'start_time': '09:00', 'end_time': '10:00'}]})
+        self.assertEqual(
+            TimetableClass.objects.filter(user=self.user, source='everytime').count(), 1)
+
+    def test_rejects_invalid_day(self):
+        res = self._post({'classes': [{'name': 'x', 'day': 'XXX',
+                                       'start_time': '09:00', 'end_time': '10:00'}]})
+        self.assertEqual(res.status_code, 400)
+
+    def test_rejects_bad_time_format(self):
+        res = self._post({'classes': [{'name': 'x', 'day': 'MON',
+                                       'start_time': '9시', 'end_time': '10:00'}]})
+        self.assertEqual(res.status_code, 400)
+
+    def test_rejects_end_before_start(self):
+        res = self._post({'classes': [{'name': 'x', 'day': 'MON',
+                                       'start_time': '10:00', 'end_time': '09:00'}]})
+        self.assertEqual(res.status_code, 400)
+
+    def test_rejects_missing_name(self):
+        res = self._post({'classes': [{'name': '', 'day': 'MON',
+                                       'start_time': '09:00', 'end_time': '10:00'}]})
+        self.assertEqual(res.status_code, 400)
+
+    def test_empty_classes_clears_image_source(self):
+        TimetableClass.objects.create(
+            user=self.user, source='image', name='이전', day='MON',
+            start_minute=540, end_minute=600,
+        )
+        res = self._post({'classes': []})
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.json()['parsed_classes_count'], 0)
+        self.assertEqual(TimetableClass.objects.filter(user=self.user, source='image').count(), 0)
