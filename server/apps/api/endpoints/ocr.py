@@ -1,4 +1,79 @@
 import re
+import requests
+from django.conf import settings
+
+OCR_SPACE_URL = 'https://api.ocr.space/parse/image'
+OCR_TIMEOUT_SECONDS = 30
+
+
+class OcrError(Exception):
+    pass
+
+
+class OcrNotConfigured(OcrError):
+    pass
+
+
+class OcrServiceError(OcrError):
+    pass
+
+
+def extract_words_from_response(data):
+    words = []
+    for result in data.get('ParsedResults') or []:
+        overlay = result.get('TextOverlay') or {}
+        for line in overlay.get('Lines') or []:
+            for word in line.get('Words') or []:
+                text = (word.get('WordText') or '').strip()
+                if not text:
+                    continue
+                left = float(word.get('Left', 0))
+                top = float(word.get('Top', 0))
+                width = float(word.get('Width', 0))
+                height = float(word.get('Height', 0))
+                words.append({
+                    'text': text,
+                    'x': left + width / 2,
+                    'y': top + height / 2,
+                    'w': width,
+                    'h': height,
+                })
+    return words
+
+
+def call_ocr_space(image_bytes, filename):
+    api_key = getattr(settings, 'OCR_SPACE_API_KEY', '')
+    if not api_key:
+        raise OcrNotConfigured()
+
+    try:
+        response = requests.post(
+            OCR_SPACE_URL,
+            files={'file': (filename or 'image.png', image_bytes)},
+            data={
+                'apikey': api_key,
+                'language': 'kor',
+                'isOverlayRequired': 'true',
+                'OCREngine': '1',
+            },
+            timeout=OCR_TIMEOUT_SECONDS,
+        )
+    except requests.RequestException as exc:
+        raise OcrServiceError(str(exc))
+
+    if response.status_code != 200:
+        raise OcrServiceError(f'OCR status {response.status_code}')
+
+    try:
+        data = response.json()
+    except ValueError:
+        raise OcrServiceError('OCR 응답을 해석할 수 없습니다')
+
+    if data.get('IsErroredOnProcessing'):
+        raise OcrServiceError(str(data.get('ErrorMessage')))
+
+    return extract_words_from_response(data)
+
 
 DAY_CODES = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN']
 DAY_HEADERS = {'월': 'MON', '화': 'TUE', '수': 'WED', '목': 'THU', '금': 'FRI', '토': 'SAT', '일': 'SUN'}
