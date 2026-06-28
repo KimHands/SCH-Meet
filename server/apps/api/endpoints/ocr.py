@@ -244,7 +244,10 @@ def parse_timetable_grid(words):
     if time_warn:
         warnings.append(time_warn)
 
-    consumed = header_ids | label_ids
+    # header_ids에 없더라도 요일 헤더로 인식된 단어는 content에서 제외한다.
+    # (_detect_day_columns 폴백 시 header_ids=set()이 되므로 별도로 처리)
+    day_header_ids = {id(word) for word in words if _day_code_for_header(word['text']) is not None}
+    consumed = header_ids | label_ids | day_header_ids
     content = [word for word in words if id(word) not in consumed]
 
     classes = []

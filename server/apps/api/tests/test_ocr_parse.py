@@ -78,3 +78,22 @@ class ParseTimetableGridTest(SimpleTestCase):
         for c in result['classes']:
             self.assertGreaterEqual(c['start_time'], '08:00')
             self.assertLessEqual(c['end_time'], '22:00')
+
+    def test_single_day_header_not_parsed_as_class(self):
+        # 요일 헤더가 1개뿐일 때 _detect_day_columns는 폴백(5등분)을 사용하고
+        # header_ids=set()을 반환한다. 이 경우 인식된 '화' 단어가 content에 남아
+        # 유령 수업으로 등록되는 버그를 검증하는 회귀 테스트.
+        words = [
+            # 요일 헤더: '화' 1개만 존재 (폴백 모드 유도)
+            _w('화', 200, 10),
+            # 시간 라벨 2개 (y→분 매핑: y=50->540, y=230->720)
+            _w('9', 20, 50), _w('12', 20, 230),
+            # 실제 수업 (x=200 영역, y=60 → top=50 → 540=09:00)
+            _w('알고리즘', 200, 60),
+        ]
+        result = parse_timetable_grid(words)
+        names = [c['name'] for c in result['classes']]
+        # '화'가 유령 수업으로 등록되어서는 안 된다
+        self.assertNotIn('화', names)
+        # 실제 수업은 정상적으로 포함되어야 한다
+        self.assertIn('알고리즘', names)
