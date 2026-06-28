@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { colors } from '../styles/theme';
 import AppBar from '../components/AppBar';
 import Button from '../components/Button';
@@ -25,6 +25,8 @@ const formatSchedule = (s) => {
 
 export default function FixedSchedulePage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const [toast, setToast] = useState('');
   const [selectedDays, setSelectedDays] = useState([]);
   const [title, setTitle] = useState('');
   const [startTime, setStartTime] = useState('');
@@ -39,6 +41,16 @@ export default function FixedSchedulePage() {
       .then((data) => setSavedList(data.map(formatSchedule)))
       .catch(() => {});
   }, []);
+
+  // 이전 페이지에서 전달된 토스트 메시지 표시
+  useEffect(() => {
+    const msg = location.state?.toast;
+    if (!msg) return;
+    setToast(msg);
+    const timer = setTimeout(() => setToast(''), 3000);
+    navigate('.', { replace: true, state: null });
+    return () => clearTimeout(timer);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const toggleDay = (index) => {
     setSelectedDays((prev) =>
@@ -82,6 +94,19 @@ export default function FixedSchedulePage() {
 
   return (
     <div style={{ height: '100vh', backgroundColor: colors.surface, display: 'flex', flexDirection: 'column' }}>
+
+      {/* 토스트 메시지 */}
+      {toast && (
+        <div style={{
+          position: 'fixed', top: 20, left: '50%', transform: 'translateX(-50%)',
+          backgroundColor: colors.onSurface, color: '#fff',
+          padding: '10px 18px', borderRadius: 99,
+          fontSize: 13, fontWeight: '500',
+          zIndex: 999, whiteSpace: 'nowrap',
+        }}>
+          {toast}
+        </div>
+      )}
 
       <AppBar />
 
