@@ -40,3 +40,13 @@ export async function getConsolidatedTimetable() {
   return apiClient('/api/timetables/consolidated/');
   // 응답: { "MON": [{ start: "09:00", end: "12:00" }], ... }
 }
+
+// 이미지 OCR 파싱 결과 확정 저장
+// POST /api/timetables/image/confirm/
+export async function confirmTimetableImage(classes) {
+  return apiClient('/api/timetables/image/confirm/', {
+    method: 'POST',
+    body: JSON.stringify({ classes }),
+  });
+  // 응답: { status: "success", parsed_classes_count: 5 }
+}
