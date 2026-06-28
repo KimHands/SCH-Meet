@@ -8,7 +8,7 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 
 from ..models import FixedSchedule, TimetableClass
-from .common import method_not_allowed, not_implemented
+from .common import method_not_allowed
 from .user import _get_authorized_user
 from . import ocr
 

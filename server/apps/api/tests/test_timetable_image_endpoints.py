@@ -24,6 +24,7 @@ class UploadImageTest(TestCase):
         self.client = Client()
         self.user = User.objects.create_user(username='kim', email='kim@test.com')
         self.auth = {'HTTP_AUTHORIZATION': f'Bearer {_access_token(self.user)}'}
+        self._orig_call_ocr_space = ocr.call_ocr_space
 
     def _fake_words(self, *args, **kwargs):
         return [
@@ -50,11 +51,8 @@ class UploadImageTest(TestCase):
 
     def test_parses_and_does_not_save(self):
         ocr.call_ocr_space = self._fake_words  # monkeypatch
-        try:
-            upload = SimpleUploadedFile('t.png', b'imgbytes', content_type='image/png')
-            res = self.client.post('/api/timetables/upload-image/', {'file': upload}, **self.auth)
-        finally:
-            pass
+        upload = SimpleUploadedFile('t.png', b'imgbytes', content_type='image/png')
+        res = self.client.post('/api/timetables/upload-image/', {'file': upload}, **self.auth)
         self.assertEqual(res.status_code, 200)
         body = res.json()
         self.assertEqual(body['status'], 'parsed')
@@ -81,5 +79,4 @@ class UploadImageTest(TestCase):
 
     def tearDown(self):
         # 원본 함수 복구
-        import importlib
-        importlib.reload(ocr)
+        ocr.call_ocr_space = self._orig_call_ocr_space
