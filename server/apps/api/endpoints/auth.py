@@ -85,8 +85,6 @@ def auth_login(request):
         if is_new_user:
             response_data['is_new_user'] = True
 
-        print(JsonResponse(response_data, status=201 if is_new_user else 200).content)  # Debugging line
-
         return JsonResponse(response_data, status=201 if is_new_user else 200)
 
     except Exception as e:
