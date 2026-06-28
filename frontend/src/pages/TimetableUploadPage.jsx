@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { colors } from '../styles/theme';
 import AppBar from '../components/AppBar';
 import Button from '../components/Button';
 import Icon from '../components/Icon';
-import { uploadTimetableUrl } from '../api/timetable';
+import { uploadTimetableUrl, uploadTimetableImage } from '../api/timetable';
 
 export default function TimetableUploadPage() {
   const navigate = useNavigate();
@@ -13,6 +13,32 @@ export default function TimetableUploadPage() {
   const [urlOk, setUrlOk] = useState(false);
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState('');
+
+  const fileInputRef = useRef(null);
+  const [imageLoading, setImageLoading] = useState(false);
+
+  const MAX_IMAGE_BYTES = 1024 * 1024;
+
+  const handleImagePick = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';            // 같은 파일 재선택 허용
+    if (!file) return;
+    if (file.size > MAX_IMAGE_BYTES) {
+      showToast('이미지는 1MB 이하만 가능합니다.');
+      return;
+    }
+    setImageLoading(true);
+    try {
+      const data = await uploadTimetableImage(file);
+      navigate('/upload-timetable/preview', {
+        state: { parsedClasses: data.parsed_classes, warnings: data.warnings },
+      });
+    } catch (err) {
+      showToast(err.message || '이미지 인식에 실패했어요.');
+    } finally {
+      setImageLoading(false);
+    }
+  };
 
   const showToast = (msg) => {
     setToast(msg);
@@ -72,28 +98,39 @@ export default function TimetableUploadPage() {
           에브리타임 URL을 입력하면<br />자동으로 시간표가 등록됩니다.
         </p>
 
-        {/* 이미지 업로드 (미구현 안내) */}
+        {/* 이미지 업로드 */}
         <div style={{ marginTop: 18, display: 'flex', alignItems: 'center', gap: 7 }}>
-          <Icon name="image" size={18} color={colors.outline} />
-          <span style={{ fontSize: 13, fontWeight: '600', color: colors.outline }}>이미지 업로드</span>
-          <span style={{ fontSize: 11, color: colors.outline, backgroundColor: colors.surfaceContainerLow, borderRadius: 99, paddingLeft: 8, paddingRight: 8, paddingTop: 2, paddingBottom: 2 }}>준비중</span>
+          <Icon name="image" size={18} color={colors.primary} />
+          <span style={{ fontSize: 13, fontWeight: '600', color: colors.onSurface }}>이미지 업로드</span>
         </div>
-        <div style={{
-          marginTop: 10,
-          border: `1.5px dashed ${colors.surfaceContainerHighest}`,
-          borderRadius: 16,
-          backgroundColor: colors.surfaceContainerLow,
-          paddingTop: 22, paddingBottom: 22,
-          paddingLeft: 16, paddingRight: 16,
-          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
-          opacity: 0.5,
-        }}>
-          <Icon name="cloud_upload" size={34} color={colors.outline} />
-          <p style={{ textAlign: 'center', fontSize: 13, lineHeight: '18px', color: colors.outline }}>
-            이미지 업로드는 준비 중입니다
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/png,image/jpeg,image/heic"
+          onChange={handleImagePick}
+          style={{ display: 'none' }}
+        />
+        <button
+          type="button"
+          onClick={() => !imageLoading && fileInputRef.current?.click()}
+          style={{
+            marginTop: 10, width: '100%',
+            border: `1.5px dashed ${colors.outlineVariant}`,
+            borderRadius: 16,
+            backgroundColor: colors.surfaceContainerLow,
+            paddingTop: 22, paddingBottom: 22, paddingLeft: 16, paddingRight: 16,
+            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
+            cursor: imageLoading ? 'default' : 'pointer',
+            opacity: imageLoading ? 0.6 : 1,
+            fontFamily: "'Be Vietnam Pro', sans-serif",
+          }}
+        >
+          <Icon name="cloud_upload" size={34} color={colors.primary} />
+          <p style={{ textAlign: 'center', fontSize: 13, lineHeight: '18px', color: colors.onSurfaceVariant }}>
+            {imageLoading ? '이미지를 인식하는 중...' : '에타 시간표 캡쳐를 올려주세요'}
           </p>
-          <span style={{ fontSize: 11, color: colors.outline }}>JPG, PNG, HEIC 파일 (최대 30MB)</span>
-        </div>
+          <span style={{ fontSize: 11, color: colors.outline }}>JPG, PNG, HEIC 파일 (최대 1MB)</span>
+        </button>
 
         {/* 구분선 */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 16, marginBottom: 16 }}>
