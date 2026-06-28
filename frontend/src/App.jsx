@@ -52,8 +52,8 @@ export default function App() {
       <Route path="/invite/:token/join" element={<InvitePage />} />
 
       {/* AI 추천 / 확정 */}
-      <Route path="/recommendations" element={<AiResultPage />} />
-      <Route path="/confirmed" element={<ConfirmedPage />} />
+      <Route path="/meetings/:id/ai-result" element={<AiResultPage />} />
+      <Route path="/meetings/:id/confirmed" element={<ConfirmedPage />} />
 
       {/* 그 외 → 홈 */}
       <Route path="*" element={<Navigate to="/" replace />} />

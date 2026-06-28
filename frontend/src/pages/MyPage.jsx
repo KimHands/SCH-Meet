@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { colors } from '../styles/theme';
 import BottomNav from '../components/BottomNav';
 import Icon from '../components/Icon';
-import { getMyProfile } from '../api/auth';
+import { getMyProfile, updateMyProfile } from '../api/auth';
 import { token } from '../utils/token';
 
 const INFO_ITEMS = [
@@ -15,12 +15,43 @@ const INFO_ITEMS = [
 export default function MyPage() {
   const navigate = useNavigate();
   const [profile, setProfile] = useState(null);
+  const [editing, setEditing] = useState(false);
+  const [nicknameInput, setNicknameInput] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [toast, setToast] = useState('');
 
   useEffect(() => {
     getMyProfile()
       .then(setProfile)
-      .catch(() => {}); // 에러 시 더미 UI 유지
+      .catch(() => {});
   }, []);
+
+  const showToast = (msg) => {
+    setToast(msg);
+    setTimeout(() => setToast(''), 2000);
+  };
+
+  const handleEditStart = () => {
+    setNicknameInput(profile?.nickname || '');
+    setEditing(true);
+  };
+
+  const handleSave = async () => {
+    const trimmed = nicknameInput.trim();
+    if (!trimmed) { showToast('닉네임을 입력해주세요'); return; }
+    if (trimmed.length > 30) { showToast('닉네임은 30자 이하로 입력해주세요'); return; }
+    setSaving(true);
+    try {
+      const updated = await updateMyProfile({ nickname: trimmed });
+      setProfile(updated);
+      setEditing(false);
+      showToast('닉네임이 변경되었어요 ✓');
+    } catch {
+      showToast('저장에 실패했어요. 다시 시도해주세요');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const handleLogout = () => {
     if (window.confirm('로그아웃 하시겠어요?')) {
@@ -28,6 +59,8 @@ export default function MyPage() {
       navigate('/login');
     }
   };
+
+  const displayName = profile?.nickname || profile?.email?.split('@')[0] || 'OOO';
 
   return (
     <div style={{ height: '100vh', backgroundColor: colors.surface, display: 'flex', flexDirection: 'column' }}>
@@ -38,35 +71,76 @@ export default function MyPage() {
 
         {/* 프로필 카드 */}
         <div style={{
-          marginTop: 18, display: 'flex', flexDirection: 'row',
-          alignItems: 'center', gap: 14,
+          marginTop: 18,
           backgroundColor: '#fff',
           border: `1px solid ${colors.surfaceContainerHighest}`,
           borderRadius: 16, padding: 16,
         }}>
-          {/* 프로필 이미지 */}
-          {profile?.profile_image_url ? (
-            <img
-              src={profile.profile_image_url}
-              alt="프로필"
-              style={{ width: 54, height: 54, borderRadius: 9999, objectFit: 'cover' }}
-            />
-          ) : (
-            <div style={{
-              width: 54, height: 54, borderRadius: 9999,
-              backgroundColor: colors.secondaryContainer,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>
-              <Icon name="person" size={30} color={colors.secondary} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            {/* 프로필 이미지 */}
+            {profile?.profile_image_url ? (
+              <img
+                src={profile.profile_image_url}
+                alt="프로필"
+                style={{ width: 54, height: 54, borderRadius: 9999, objectFit: 'cover' }}
+              />
+            ) : (
+              <div style={{
+                width: 54, height: 54, borderRadius: 9999,
+                backgroundColor: colors.secondaryContainer,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                flexShrink: 0,
+              }}>
+                <Icon name="person" size={30} color={colors.secondary} />
+              </div>
+            )}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              {editing ? (
+                <input
+                  autoFocus
+                  value={nicknameInput}
+                  onChange={(e) => setNicknameInput(e.target.value)}
+                  maxLength={30}
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') setEditing(false); }}
+                  style={{
+                    width: '100%', fontSize: 16, fontWeight: '700',
+                    color: colors.onSurface, border: 'none', borderBottom: `2px solid ${colors.primary}`,
+                    outline: 'none', background: 'transparent', padding: '2px 0',
+                  }}
+                />
+              ) : (
+                <p style={{ fontSize: 17, fontWeight: '700', color: colors.onSurface }}>{displayName}</p>
+              )}
+              <p style={{ fontSize: 13, color: colors.outline, marginTop: 2 }}>
+                {profile?.email || ''}
+              </p>
             </div>
-          )}
-          <div>
-            <p style={{ fontSize: 17, fontWeight: '700', color: colors.onSurface }}>
-              {profile?.nickname || profile?.email?.split('@')[0] || 'OOO'}
-            </p>
-            <p style={{ fontSize: 13, color: colors.outline, marginTop: 2 }}>
-              {profile?.email || ''}
-            </p>
+
+            {/* 편집 / 저장 버튼 */}
+            {editing ? (
+              <div style={{ display: 'flex', gap: 6 }}>
+                <button
+                  onClick={() => setEditing(false)}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}
+                >
+                  <Icon name="close" size={20} color={colors.outline} />
+                </button>
+                <button
+                  onClick={handleSave}
+                  disabled={saving}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}
+                >
+                  <Icon name="check" size={20} color={saving ? colors.outline : colors.primary} />
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={handleEditStart}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}
+              >
+                <Icon name="edit" size={20} color={colors.outline} />
+              </button>
+            )}
           </div>
         </div>
 
@@ -117,6 +191,19 @@ export default function MyPage() {
         </div>
 
       </div>
+
+      {/* 토스트 */}
+      {toast && (
+        <div style={{
+          position: 'fixed', bottom: 90, left: '50%', transform: 'translateX(-50%)',
+          backgroundColor: 'rgba(0,0,0,0.75)', color: '#fff',
+          padding: '10px 20px', borderRadius: 20,
+          fontSize: 13, fontWeight: '500', whiteSpace: 'nowrap',
+          zIndex: 999,
+        }}>
+          {toast}
+        </div>
+      )}
 
       <BottomNav />
     </div>
