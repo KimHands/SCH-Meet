@@ -97,3 +97,20 @@ class ParseTimetableGridTest(SimpleTestCase):
         self.assertNotIn('화', names)
         # 실제 수업은 정상적으로 포함되어야 한다
         self.assertIn('알고리즘', names)
+
+    def test_twelve_hour_time_labels_map_to_afternoon(self):
+        # 에타 시간축은 12시간제(9,10,11,12,1,2,3...)로 표시된다.
+        # 12 다음의 1~11은 오후(13시~)로 해석되어야 한다.
+        # 시간 라벨: 9(y=100)->09:00, 3(y=340)->15:00(오후).
+        # 매핑 slope=(900-540)/(340-100)=1.5, 오후 수업 top=260 -> 780=13:00.
+        words = [
+            _w('월', 100, 30), _w('화', 200, 30),
+            _w('9', 20, 100), _w('3', 20, 340),
+            # 월요일 오후 수업: y=270 -> top=260 -> 13:00
+            _w('알고리즘', 100, 270),
+        ]
+        result = parse_timetable_grid(words)
+        mon = next(c for c in result['classes'] if c['day'] == 'MON')
+        self.assertEqual(mon['name'], '알고리즘')
+        # 12시간제 보정 전에는 '3'을 03:00으로 읽어 오전이 되는 버그가 있었다.
+        self.assertEqual(mon['start_time'], '13:00')

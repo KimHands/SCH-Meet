@@ -175,8 +175,19 @@ def _build_time_mapping(words):
 
     if len(labels) >= 2:
         labels.sort(key=lambda item: item[0])
-        y0, m0, _ = labels[0]
-        y1, m1, _ = labels[-1]
+        # 12시간제 라벨(9,10,11,12,1,2,3...) 보정: 위→아래로 시각은 커져야 하므로
+        # 이전 값보다 작아지면 12시간(720분)씩 더해 24시간제로 변환한다.
+        normalized = []
+        prev_minute = None
+        for y, minute, _word in labels:
+            adjusted = minute
+            while prev_minute is not None and adjusted < prev_minute:
+                adjusted += 12 * 60
+            normalized.append((y, adjusted))
+            prev_minute = adjusted
+
+        y0, m0 = normalized[0]
+        y1, m1 = normalized[-1]
         slope = 0.0 if y1 == y0 else (m1 - m0) / (y1 - y0)
 
         def mapping(y):
