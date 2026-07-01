@@ -113,7 +113,10 @@ export default function OnboardingPage() {
   const navigate = useNavigate();
   const [slide, setSlide] = useState(1);
 
-  const goLogin = () => navigate('/login');
+  const goLogin = () => {
+    localStorage.setItem('onboardingDone', 'true');
+    navigate('/login');
+  };
 
   return (
     <div style={{ height: '100vh', backgroundColor: colors.surface, display: 'flex', flexDirection: 'column' }}>
