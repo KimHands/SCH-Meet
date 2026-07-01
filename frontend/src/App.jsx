@@ -1,4 +1,11 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
+import { token } from './utils/token';
+
+function RootRedirect() {
+  if (token.exists()) return <Navigate to="/home" replace />;
+  if (localStorage.getItem('onboardingDone')) return <Navigate to="/login" replace />;
+  return <Navigate to="/onboarding-1" replace />;
+}
 
 // 온보딩 / 인증
 import OnboardingPage from './pages/OnboardingPage';
@@ -38,8 +45,9 @@ export default function App() {
       <Route path="/upload-timetable/preview" element={<TimetablePreviewPage />} />
       <Route path="/add-schedule" element={<FixedSchedulePage />} />
 
-      {/* 메인 탭 */}
-      <Route path="/" element={<HomePage />} />
+      {/* 루트 진입점 */}
+      <Route path="/" element={<RootRedirect />} />
+      <Route path="/home" element={<HomePage />} />
       <Route path="/meetings" element={<MeetingListPage />} />
       <Route path="/calendar" element={<CalendarPage />} />
       <Route path="/notifications" element={<NotificationsPage />} />
