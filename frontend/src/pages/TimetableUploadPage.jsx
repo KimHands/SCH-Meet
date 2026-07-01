@@ -6,6 +6,77 @@ import Button from '../components/Button';
 import Icon from '../components/Icon';
 import { uploadTimetableUrl, uploadTimetableImage } from '../api/timetable';
 
+function UrlGuideModal({ onClose }) {
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 1000,
+      backgroundColor: 'rgba(0,0,0,0.45)',
+      display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+    }} onClick={onClose}>
+      <div style={{
+        width: '100%', maxWidth: 480,
+        backgroundColor: '#fff',
+        borderRadius: '20px 20px 0 0',
+        padding: '24px 24px 36px',
+        boxSizing: 'border-box',
+      }} onClick={e => e.stopPropagation()}>
+
+        {/* 핸들 */}
+        <div style={{ width: 36, height: 4, borderRadius: 99, backgroundColor: colors.outlineVariant, margin: '0 auto 20px' }} />
+
+        <h2 style={{ fontSize: 17, fontWeight: '700', color: colors.onSurface, marginBottom: 20 }}>
+          에브리타임 URL 찾는 방법
+        </h2>
+
+        {/* Step 1 */}
+        <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start', marginBottom: 20 }}>
+          <div style={{
+            width: 28, height: 28, borderRadius: 99,
+            backgroundColor: colors.primary, flexShrink: 0,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <span style={{ fontSize: 13, fontWeight: '700', color: '#fff' }}>1</span>
+          </div>
+          <div>
+            <p style={{ fontSize: 14, fontWeight: '600', color: colors.onSurface, marginBottom: 3 }}>
+              시간표 탭 진입
+            </p>
+            <p style={{ fontSize: 13, lineHeight: '19px', color: colors.secondary }}>
+              에브리타임 앱 하단의 <b>시간표</b> 탭을 누른 뒤,{' '}
+              우측 상단 <b>톱니바퀴(⚙️) 버튼</b>을 클릭하세요.
+            </p>
+          </div>
+        </div>
+
+        {/* 구분선 */}
+        <div style={{ width: 2, height: 16, backgroundColor: colors.outlineVariant, marginLeft: 13, marginBottom: 20 }} />
+
+        {/* Step 2 */}
+        <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start', marginBottom: 28 }}>
+          <div style={{
+            width: 28, height: 28, borderRadius: 99,
+            backgroundColor: colors.primary, flexShrink: 0,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <span style={{ fontSize: 13, fontWeight: '700', color: '#fff' }}>2</span>
+          </div>
+          <div>
+            <p style={{ fontSize: 14, fontWeight: '600', color: colors.onSurface, marginBottom: 3 }}>
+              URL 복사
+            </p>
+            <p style={{ fontSize: 13, lineHeight: '19px', color: colors.secondary }}>
+              메뉴에서 <b>URL 복사</b>를 탭하면 공유 링크가{' '}
+              클립보드에 복사됩니다. 복사한 URL을 위 입력창에 붙여넣어 주세요.
+            </p>
+          </div>
+        </div>
+
+        <Button label="확인" onClick={onClose} style={{ width: '100%' }} height={50} fontSize={15} />
+      </div>
+    </div>
+  );
+}
+
 export default function TimetableUploadPage() {
   const navigate = useNavigate();
   const [url, setUrl] = useState('');
@@ -13,6 +84,7 @@ export default function TimetableUploadPage() {
   const [urlOk, setUrlOk] = useState(false);
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState('');
+  const [showGuide, setShowGuide] = useState(false);
 
   const fileInputRef = useRef(null);
   const [imageLoading, setImageLoading] = useState(false);
@@ -73,6 +145,7 @@ export default function TimetableUploadPage() {
 
   return (
     <div style={{ height: '100vh', backgroundColor: colors.surface, display: 'flex', flexDirection: 'column' }}>
+      {showGuide && <UrlGuideModal onClose={() => setShowGuide(false)} />}
 
       {/* 토스트 메시지 */}
       {toast && (
@@ -184,7 +257,7 @@ export default function TimetableUploadPage() {
             <Icon name="tips_and_updates" size={16} color={colors.tertiaryContainer} />
             <span style={{ fontSize: 12, fontWeight: '500', color: colors.secondary }}>TIP</span>
           </div>
-          <Button variant="outline" label="URL 찾는 방법" height={32} fontSize={12} style={{ paddingLeft: 14, paddingRight: 14 }} />
+          <Button variant="outline" label="URL 찾는 방법" height={32} fontSize={12} style={{ paddingLeft: 14, paddingRight: 14 }} onClick={() => setShowGuide(true)} />
         </div>
 
       </div>
