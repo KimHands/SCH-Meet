@@ -12,16 +12,18 @@ export async function getMeetings(status = 'active') {
 
 // 모임 상세 조회
 // GET /api/meetings/{id}/
+// 응답에 invite_link(없으면 null), duration_minutes, my_role('CREATOR'|'MEMBER') 포함
 export async function getMeeting(meetingId) {
   return apiClient(`/api/meetings/${meetingId}/`);
 }
 
 // 모임 생성
 // POST /api/meetings/
-export async function createMeeting({ name, purpose, desired_time, desired_location, latitude, longitude, capacity }) {
+// duration_minutes: 30~240, 30분 단위 (기본 60)
+export async function createMeeting({ name, purpose, desired_time, desired_location, latitude, longitude, capacity, duration_minutes }) {
   return apiClient('/api/meetings/', {
     method: 'POST',
-    body: JSON.stringify({ name, purpose, desired_time, desired_location, latitude, longitude, capacity }),
+    body: JSON.stringify({ name, purpose, desired_time, desired_location, latitude, longitude, capacity, duration_minutes }),
   });
   // 응답: { meeting_id, invite_link, token }
 }
@@ -52,6 +54,7 @@ export async function getInviteInfo(token) {
 
 // 모임 참여 (희망 시간, 장소 제출)
 // POST /api/meetings/invite/{token}/join/
+// 정원 초과·이미 확정된 모임이면 409 { detail }
 export async function joinMeeting(token, { desired_time, desired_location, latitude, longitude }) {
   return apiClient(`/api/meetings/invite/${token}/join/`, {
     method: 'POST',
@@ -66,12 +69,13 @@ export async function getRecommendations(meetingId) {
   // 응답: 추천 시간 목록 + reason_bullets
 }
 
-// 일정 확정
+// 일정 확정 (모임장 전용 — 아니면 403)
 // POST /api/meetings/{id}/confirm/
-export async function confirmMeeting(meetingId, selectedRecommendationId) {
+// 그 사이 시간이 막혔으면 409 { detail } → 화면에서 detail 표시 후 추천 다시 조회
+export async function confirmMeeting(meetingId, { recommendationId, day, startTime }) {
   return apiClient(`/api/meetings/${meetingId}/confirm/`, {
     method: 'POST',
-    body: JSON.stringify({ selected_recommendation_id: selectedRecommendationId }),
+    body: JSON.stringify({ selected_recommendation_id: recommendationId, day, start_time: startTime }),
   });
 }
 

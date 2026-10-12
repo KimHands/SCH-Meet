@@ -1,4 +1,4 @@
-from .auth import auth_login
+from .auth import auth_login, auth_refresh
 from .dashboard import dashboard_summary
 from .meetings import (
     meeting_confirm,
@@ -21,6 +21,7 @@ from .user import user_me
 
 __all__ = [
     'auth_login',
+    'auth_refresh',
     'user_me',
     'timetable_upload_url',
     'timetable_upload_image',

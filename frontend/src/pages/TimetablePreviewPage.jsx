@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { colors } from '../styles/theme';
+import { useNavigate, useLocation, Navigate } from 'react-router-dom';
+import { colors, screenStyle } from '../styles/theme';
 import AppBar from '../components/AppBar';
 import Button from '../components/Button';
 import { confirmTimetableImage } from '../api/timetable';
@@ -14,13 +14,25 @@ const DAY_OPTIONS = [
 
 const EMPTY_ROW = { name: '', day: 'MON', start_time: '09:00', end_time: '10:00', place: '', professor: '' };
 
-export default function TimetablePreviewPage() {
-  const navigate = useNavigate();
-  const location = useLocation();
-  const initial = location.state?.parsedClasses || [];
-  const warnings = location.state?.warnings || [];
+function findRowError(rows) {
+  for (const row of rows) {
+    if (!(row.name ?? '').trim()) return '과목명을 모두 입력해주세요.';
+    if (row.end_time <= row.start_time) return '종료 시간이 시작보다 빨라요.';
+  }
+  return '';
+}
 
-  const [rows, setRows] = useState(initial);
+// 이미지 업로드 화면에서 넘어온 인식 결과가 없으면(새로고침·직접 접근) 업로드 화면으로 돌려보낸다
+export default function TimetablePreviewPage() {
+  const location = useLocation();
+  const parsedClasses = location.state?.parsedClasses;
+  if (!Array.isArray(parsedClasses)) return <Navigate to="/upload-timetable" replace />;
+  return <PreviewEditor initialRows={parsedClasses} warnings={location.state?.warnings ?? []} />;
+}
+
+function PreviewEditor({ initialRows, warnings }) {
+  const navigate = useNavigate();
+  const [rows, setRows] = useState(initialRows);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -31,20 +43,17 @@ export default function TimetablePreviewPage() {
   const addRow = () => setRows((prev) => [...prev, { ...EMPTY_ROW }]);
 
   const handleConfirm = async () => {
-    setError('');
-    for (const row of rows) {
-      if (!row.name.trim()) { setError('과목명을 모두 입력해주세요.'); return; }
-      if (row.end_time <= row.start_time) { setError('종료 시간이 시작보다 빨라요.'); return; }
-    }
+    const rowError = findRowError(rows);
+    setError(rowError);
+    if (rowError) return;
     setSaving(true);
     try {
-      const data = await confirmTimetableImage(rows);
+      const data = await confirmTimetableImage(rows.map((row) => ({ ...row, name: (row.name ?? '').trim() })));
       navigate('/add-schedule', {
         state: { toast: `시간표 ${data.parsed_classes_count}개 수업이 등록되었습니다.` },
       });
     } catch (e) {
       setError(e.message || '저장에 실패했어요.');
-    } finally {
       setSaving(false);
     }
   };
@@ -52,11 +61,11 @@ export default function TimetablePreviewPage() {
   const inputStyle = {
     border: `1px solid ${colors.outlineVariant}`, borderRadius: 8,
     padding: '8px 10px', fontSize: 13, color: colors.onSurface,
-    fontFamily: "'Be Vietnam Pro', sans-serif", outline: 'none', backgroundColor: '#fff',
+    backgroundColor: '#fff',
   };
 
   return (
-    <div style={{ height: '100vh', backgroundColor: colors.surface, display: 'flex', flexDirection: 'column' }}>
+    <main style={screenStyle}>
       <AppBar />
       <div style={{ flex: 1, overflowY: 'auto', padding: '8px 20px 16px' }}>
         <h1 style={{ marginTop: 6, fontSize: 22, fontWeight: '700', color: colors.onSurface }}>
@@ -85,21 +94,24 @@ export default function TimetablePreviewPage() {
             }}>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                 <input
-                  value={row.name}
+                  value={row.name ?? ''}
                   onChange={(e) => updateRow(index, 'name', e.target.value)}
                   placeholder="과목명"
+                  aria-label={`${index + 1}번째 수업 과목명`}
                   style={{ ...inputStyle, flex: 1 }}
                 />
                 <button
                   type="button"
                   onClick={() => removeRow(index)}
-                  style={{ border: 'none', background: 'none', color: colors.error, fontSize: 13, cursor: 'pointer' }}
+                  aria-label={`${index + 1}번째 수업 삭제`}
+                  style={{ color: colors.error, fontSize: 13, padding: '4px 6px' }}
                 >삭제</button>
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
                 <select
                   value={row.day}
                   onChange={(e) => updateRow(index, 'day', e.target.value)}
+                  aria-label={`${index + 1}번째 수업 요일`}
                   style={{ ...inputStyle }}
                 >
                   {DAY_OPTIONS.map((d) => <option key={d.code} value={d.code}>{d.label}</option>)}
@@ -108,12 +120,14 @@ export default function TimetablePreviewPage() {
                   type="time"
                   value={row.start_time}
                   onChange={(e) => updateRow(index, 'start_time', e.target.value)}
+                  aria-label={`${index + 1}번째 수업 시작 시간`}
                   style={{ ...inputStyle, flex: 1 }}
                 />
                 <input
                   type="time"
                   value={row.end_time}
                   onChange={(e) => updateRow(index, 'end_time', e.target.value)}
+                  aria-label={`${index + 1}번째 수업 종료 시간`}
                   style={{ ...inputStyle, flex: 1 }}
                 />
               </div>
@@ -128,11 +142,10 @@ export default function TimetablePreviewPage() {
             marginTop: 12, width: '100%', border: `1.5px dashed ${colors.outlineVariant}`,
             borderRadius: 12, padding: '12px', backgroundColor: 'transparent',
             color: colors.primary, fontSize: 13, fontWeight: '600', cursor: 'pointer',
-            fontFamily: "'Be Vietnam Pro', sans-serif",
           }}
         >+ 수업 추가</button>
 
-        {error && <p style={{ marginTop: 10, fontSize: 12, color: colors.error }}>{error}</p>}
+        {error && <p role="alert" style={{ marginTop: 10, fontSize: 12, color: colors.error }}>{error}</p>}
       </div>
 
       <div style={{ display: 'flex', gap: 10, padding: '14px 20px 18px' }}>
@@ -144,6 +157,6 @@ export default function TimetablePreviewPage() {
           height={52} fontSize={15} style={{ flex: 1.6 }}
         />
       </div>
-    </div>
+    </main>
   );
 }

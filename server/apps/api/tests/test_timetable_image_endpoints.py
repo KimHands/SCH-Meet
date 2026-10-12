@@ -8,6 +8,8 @@ from django.test import TestCase, Client
 from api.endpoints import ocr
 from api.models import TimetableClass
 
+PNG_BYTES = b'\x89PNG\r\n\x1a\n' + b'imgbytes'
+
 
 def _access_token(user):
     payload = {
@@ -51,7 +53,7 @@ class UploadImageTest(TestCase):
 
     def test_parses_and_does_not_save(self):
         ocr.call_ocr_space = self._fake_words  # monkeypatch
-        upload = SimpleUploadedFile('t.png', b'imgbytes', content_type='image/png')
+        upload = SimpleUploadedFile('t.png', PNG_BYTES, content_type='image/png')
         res = self.client.post('/api/timetables/upload-image/', {'file': upload}, **self.auth)
         self.assertEqual(res.status_code, 200)
         body = res.json()
@@ -65,7 +67,7 @@ class UploadImageTest(TestCase):
         def _raise(*a, **k):
             raise ocr.OcrNotConfigured()
         ocr.call_ocr_space = _raise
-        upload = SimpleUploadedFile('t.png', b'imgbytes', content_type='image/png')
+        upload = SimpleUploadedFile('t.png', PNG_BYTES, content_type='image/png')
         res = self.client.post('/api/timetables/upload-image/', {'file': upload}, **self.auth)
         self.assertEqual(res.status_code, 503)
 
@@ -73,7 +75,7 @@ class UploadImageTest(TestCase):
         def _raise(*a, **k):
             raise ocr.OcrServiceError('boom')
         ocr.call_ocr_space = _raise
-        upload = SimpleUploadedFile('t.png', b'imgbytes', content_type='image/png')
+        upload = SimpleUploadedFile('t.png', PNG_BYTES, content_type='image/png')
         res = self.client.post('/api/timetables/upload-image/', {'file': upload}, **self.auth)
         self.assertEqual(res.status_code, 502)
 

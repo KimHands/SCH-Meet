@@ -1,10 +1,24 @@
 /* ============================================
-   MeetTime — Global Styles
+   SCH-Meet — Global Styles
    PC에서 모바일 앱처럼 보이는 컨테이너 레이아웃
    ============================================ */
 
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css');
 @import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200');
+@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&icon_names=add,add_circle,arrow_back,arrow_forward,assignment,auto_awesome,calendar_month,calendar_view_week,campaign,check,check_circle,chevron_right,close,cloud_upload,content_copy,delete,edit,error,event,event_available,event_busy,event_repeat,expand_more,group_add,groups,home,image,link,link_off,logout,menu_book,notifications,notifications_off,person,school,tips_and_updates,upload_file,workspace_premium&display=block');
+
+:root {
+  --app-height: 100vh;
+  --font-base: 'Pretendard Variable', Pretendard, 'Be Vietnam Pro', -apple-system, BlinkMacSystemFont,
+    'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', system-ui, sans-serif;
+  --focus-ring: #3d5ca2;
+}
+
+@supports (height: 100dvh) {
+  :root {
+    --app-height: 100dvh;
+  }
+}
 
 *, *::before, *::after {
   box-sizing: border-box;
@@ -18,12 +32,13 @@ html, body, #root {
 }
 
 body {
-  font-family: 'Be Vietnam Pro', sans-serif;
+  font-family: var(--font-base);
   background-color: #dad9e0; /* 모바일 앱 바깥 배경 */
   display: flex;
   justify-content: center;
   align-items: flex-start;
   min-height: 100vh;
+  min-height: 100dvh;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -32,6 +47,7 @@ body {
   width: 100%;
   max-width: 390px;
   min-height: 100vh;
+  min-height: 100dvh;
   background-color: #faf8ff;
   position: relative;
   overflow-x: hidden;
@@ -47,17 +63,30 @@ body {
   display: none;
 }
 
-/* 기본 버튼/링크 리셋 */
+/* 기본 버튼/폼 리셋 */
+button, input, select, textarea {
+  font-family: inherit;
+}
+
 button {
-  font-family: 'Be Vietnam Pro', sans-serif;
   cursor: pointer;
   border: none;
   background: none;
 }
 
+button:disabled {
+  cursor: not-allowed;
+}
+
 a {
   text-decoration: none;
   color: inherit;
+}
+
+/* 키보드 포커스 표시 — 마우스 클릭에는 표시하지 않음 */
+:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
 }
 
 /* 유틸리티 */
@@ -66,3 +95,17 @@ a {
   user-select: none;
   line-height: 1;
 }
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+

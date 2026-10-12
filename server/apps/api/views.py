@@ -1,5 +1,6 @@
 from .endpoints import (
     auth_login,
+    auth_refresh,
     dashboard_summary,
     fixed_schedule_detail,
     fixed_schedules,
@@ -21,6 +22,7 @@ from .endpoints import (
 
 __all__ = [
     'auth_login',
+    'auth_refresh',
     'user_me',
     'timetable_upload_url',
     'timetable_upload_image',

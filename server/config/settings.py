@@ -41,8 +41,15 @@ if not SECRET_KEY:
         'DJANGO_SECRET_KEY 환경변수가 설정되지 않았습니다. .env 또는 환경변수로 강력한 키를 주입하세요.'
     )
 
+def _env_flag(name, default='False'):
+    return os.environ.get(name, default).lower() in ('1', 'true', 'yes', 'on')
+
+
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ.get('DJANGO_DEBUG', 'False').lower() in ('1', 'true', 'yes', 'on')
+DEBUG = _env_flag('DJANGO_DEBUG')
+
+# 관리자 페이지는 기본 비노출. 필요할 때만 DJANGO_ADMIN_ENABLED=True로 연다.
+ADMIN_ENABLED = DEBUG or _env_flag('DJANGO_ADMIN_ENABLED')
 
 ALLOWED_HOSTS = ['localhost', '127.0.0.1', '[::1]']
 # 운영 호스트: 콤마 구분 DJANGO_ALLOWED_HOSTS + Render 자동 호스트명
@@ -142,7 +149,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'Asia/Seoul'
 
 USE_I18N = True
 
@@ -182,7 +189,7 @@ _frontend_origins = [o.strip() for o in os.environ.get('FRONTEND_ORIGINS', '').s
 CORS_ALLOWED_ORIGINS += _frontend_origins
 CSRF_TRUSTED_ORIGINS += _frontend_origins
 
-CORS_ALLOW_CREDENTIALS = True
+# 인증은 Authorization 헤더(Bearer)로만 하므로 쿠키 자격증명은 허용하지 않는다.
 
 # Google OAuth settings (read from environment; .env는 파일 상단에서 이미 로드됨)
 GOOGLE_CLIENT_ID = os.environ.get('GOOGLE_CLIENT_ID')
@@ -193,3 +200,16 @@ FRONTEND_BASE_URL = os.environ.get('FRONTEND_BASE_URL', 'http://localhost:5173')
 
 # OCR.space API key for timetable image recognition
 OCR_SPACE_API_KEY = os.environ.get('OCR_SPACE_API_KEY', '')
+
+
+# 레이트리밋용 클라이언트 IP: X-Forwarded-For 오른쪽에서 몇 번째 항목을 믿을지(0이면 REMOTE_ADDR만 사용)
+TRUSTED_PROXY_COUNT = int(os.environ.get('TRUSTED_PROXY_COUNT', '1' if _env_flag('RENDER') else '0'))
+
+# 운영(HTTPS) 보안 설정 — Render는 RENDER=true를 자동 주입한다.
+if _env_flag('RENDER'):
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    SECURE_SSL_REDIRECT = True
+    SECURE_HSTS_SECONDS = 60 * 60 * 24 * 365
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = False
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True

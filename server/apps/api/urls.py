@@ -4,6 +4,7 @@ from . import views
 
 urlpatterns = [
     path('auth/login/', views.auth_login, name='auth-login'),
+    path('auth/refresh/', views.auth_refresh, name='auth-refresh'),
     path('users/me/', views.user_me, name='user-me'),
     path('timetables/upload-url/', views.timetable_upload_url, name='timetable-upload-url'),
     path('timetables/upload-image/', views.timetable_upload_image, name='timetable-upload-image'),
