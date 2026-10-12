@@ -2,7 +2,9 @@
 
 > 순천향대 학생을 위한 시간표 기반 팀 모임 일정 조율 웹앱 (멋쟁이사자처럼 14기)
 
-🌐 **배포 URL**: https://sch-meet.vercel.app
+🌐 **배포 URL**
+- Frontend: https://sch-meet.vercel.app
+- Backend API: https://schmeet-api.onrender.com (Render 무료 플랜이라 첫 요청 시 서버가 깨어나는 데 최대 1분 걸릴 수 있음)
 
 ---
 
@@ -19,9 +21,9 @@ SCH-Meet은 각자 에브리타임 시간표(URL 또는 캡처 이미지)와 고
 - 🔐 **Google 로그인** — 구글 계정으로 가입·로그인
 - 📅 **시간표 업로드** — 에브리타임 시간표 URL 파싱, 또는 시간표 캡처 이미지를 OCR로 인식한 뒤 미리보기에서 수정·확정
 - 📌 **고정 일정** — 알바·동아리 등 수업 외 반복 일정 등록·수정·삭제
-- 👥 **모임 생성 / 초대** — 모임을 만들고 초대 링크로 팀원 참여
-- 🤖 **AI 추천** — 참여자 전원의 공통 빈 시간을 계산하고, 공강 길이·참여 인원·희망 시간대·희망 장소·이동 거리를 점수화(규칙 기반)해 후보 시간을 추천 이유와 함께 제시
-- ✅ **일정 확정** — 추천 후보 중 하나로 모임 시간 확정, 확정된 일정은 참여자 시간표에 반영
+- 👥 **모임 생성 / 초대** — 모임 길이(30분~4시간)를 정해 모임을 만들고 초대 링크로 팀원 참여
+- 🤖 **AI 추천** — 참여자 전원의 공통 빈 시간에서 모임 길이만큼 들어갈 시간을 찾고, 공강 길이·참여 인원·희망 시간대·희망 장소·이동 거리를 점수화(규칙 기반)해 후보 시간을 추천 이유와 함께 제시
+- ✅ **일정 확정** — 추천 후보 중 하나로 모임 시간 확정, 확정된 일정은 참여자 시간표에 반영(모임 삭제·탈퇴 시 자동 정리)
 - 🗓 **캘린더 / 대시보드** — 내 시간표와 모임 일정을 캘린더·홈 화면에서 확인
 - 🔔 **알림** — 모임 생성·참여·확정 알림 내역 확인
 
@@ -69,7 +71,7 @@ SCH-Meet/
 
 ### 사전 요구사항
 - Python 3.12 이상
-- Node.js 18 이상
+- Node.js (버전은 `frontend/.nvmrc` 참고)
 
 ### 1. 저장소 클론
 ```bash
@@ -88,6 +90,7 @@ cp .env.example .env
 # .env 의 값 채우기 (아래 환경변수 참고)
 
 python manage.py migrate
+python manage.py test api   # 테스트
 python manage.py runserver 8080
 # → http://localhost:8080
 ```
@@ -100,6 +103,7 @@ npm install
 cp .env.example .env
 # VITE_API_BASE_URL=http://localhost:8080
 
+npm test        # 테스트
 npm run dev
 # → http://localhost:5173
 ```
@@ -113,6 +117,9 @@ npm run dev
 |---|---|
 | `DJANGO_SECRET_KEY` | 필수. 미설정 시 서버가 기동되지 않음 |
 | `DJANGO_DEBUG` | 로컬 개발에서만 `True` |
+| `DJANGO_ALLOWED_HOSTS` | 추가 허용 호스트(콤마 구분) |
+| `DJANGO_ADMIN_ENABLED` | 관리자 페이지 노출 여부(기본 비노출) |
+| `FRONTEND_ORIGINS` / `FRONTEND_BASE_URL` | CORS 허용 오리진 / 초대 링크용 프론트 주소 |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google OAuth |
 | `OCR_SPACE_API_KEY` | 시간표 이미지 인식 |
 
@@ -122,7 +129,17 @@ npm run dev
 | `VITE_API_BASE_URL` | 백엔드 주소 |
 | `VITE_GOOGLE_CLIENT_ID` | Google OAuth 클라이언트 ID |
 
-> ⚠️ `.env` 파일은 Git에 올리지 않는다 (`.gitignore` 등록됨).
+> ⚠️ `.env` 파일과 API 키 값은 Git에 올리지 않는다 (`.gitignore` 등록됨). 운영 값은 Render·Vercel 대시보드에만 입력한다.
+
+---
+
+## 🔒 보안
+
+- Google 로그인은 이메일 인증된 계정만 허용하고, JWT(access 60분 / refresh 7일)로 인증한다.
+- 로그인·시간표 연동·OCR 업로드에 요청 횟수 제한을 둔다.
+- 업로드 이미지는 크기(1MB)와 파일 시그니처(PNG·JPG·WEBP)를 검사하고, 외부 XML은 defusedxml로 파싱한다.
+- 운영에서는 HTTPS 리다이렉트·HSTS·보안 쿠키를 켜고, 프론트는 CSP 등 보안 헤더를 붙인다.
+- CI(GitHub Actions)에서 테스트·빌드와 함께 `pip-audit`·`npm audit`로 의존성 취약점을 검사한다.
 
 ---
 
