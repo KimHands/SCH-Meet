@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { colors } from '../styles/theme';
+import { colors, screenStyle, pressableStyle } from '../styles/theme';
+import ErrorBanner from '../components/ErrorBanner';
 import BottomNav from '../components/BottomNav';
 import Button from '../components/Button';
 import Icon from '../components/Icon';
@@ -26,34 +27,45 @@ export default function MeetingListPage() {
   const [activeTab, setActiveTab] = useState('active');
   const [meetings, setMeetings] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const [reloadKey, setReloadKey] = useState(0);
 
+  // 탭을 빠르게 바꾸면 이전 탭의 늦은 응답은 무시한다
   useEffect(() => {
+    let isStale = false;
     setLoading(true);
+    setLoadError('');
     getMeetings(activeTab)
-      .then(setMeetings)
-      .catch(() => setMeetings([]))
-      .finally(() => setLoading(false));
-  }, [activeTab]);
+      .then((data) => { if (!isStale) setMeetings(data ?? []); })
+      .catch((e) => {
+        if (isStale) return;
+        setMeetings([]);
+        setLoadError(e.message || '모임 목록을 불러오지 못했어요.');
+      })
+      .finally(() => { if (!isStale) setLoading(false); });
+    return () => { isStale = true; };
+  }, [activeTab, reloadKey]);
 
   const emptyIcon  = activeTab === 'active' ? 'groups'      : 'event_busy';
   const emptyTitle = activeTab === 'active' ? '참여 중인 모임이 없어요' : '종료된 모임이 없어요';
   const emptySub   = activeTab === 'active' ? '아래 버튼을 눌러 첫 모임을 만들어보세요' : '모임이 종료되면 여기에 표시돼요';
 
   return (
-    <div style={{ height: '100vh', backgroundColor: colors.surface, display: 'flex', flexDirection: 'column' }}>
+    <div style={screenStyle}>
 
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '8px 20px 80px', overflow: 'hidden' }}>
+      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '8px 20px 80px', overflow: 'hidden' }}>
 
         {/* 제목 */}
-        <p style={{ marginTop: 4, fontSize: 22, fontWeight: '700', color: colors.onSurface }}>모임</p>
+        <h1 style={{ marginTop: 4, fontSize: 22, fontWeight: '700', color: colors.onSurface }}>모임</h1>
 
         {/* 탭 */}
-        <div style={{ marginTop: 16, display: 'flex', gap: 8 }}>
+        <div role="group" aria-label="모임 상태" style={{ marginTop: 16, display: 'flex', gap: 8 }}>
           <Button
             variant={activeTab === 'active' ? 'primary' : 'outline'}
             label="참여 중"
             height={42} fontSize={14}
             onClick={() => setActiveTab('active')}
+            pressed={activeTab === 'active'}
             style={{ flex: 1 }}
           />
           <Button
@@ -61,17 +73,17 @@ export default function MeetingListPage() {
             label="종료된 모임"
             height={42} fontSize={14}
             onClick={() => setActiveTab('ended')}
+            pressed={activeTab === 'ended'}
             style={{ flex: 1 }}
           />
         </div>
 
         {/* 목록 */}
         <div style={{ flex: 1, overflowY: 'auto', marginTop: 16, display: 'flex', flexDirection: 'column', gap: 12, paddingBottom: 8 }}>
+          {loadError && <ErrorBanner message={loadError} onRetry={() => setReloadKey((k) => k + 1)} />}
           {loading ? (
-            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', paddingTop: 60 }}>
-              <LoadingSpinner />
-            </div>
-          ) : meetings.length === 0 ? (
+            <LoadingSpinner fullScreen={false} />
+          ) : loadError ? null : meetings.length === 0 ? (
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', paddingTop: 60 }}>
               <Icon name={emptyIcon} size={48} color={colors.outlineVariant} />
               <p style={{ marginTop: 14, fontSize: 15, fontWeight: '600', color: colors.onSurfaceVariant }}>{emptyTitle}</p>
@@ -82,10 +94,13 @@ export default function MeetingListPage() {
               const { icon, bg, fg } = purposeIcon(m.purpose);
               const count = m.participant_count ?? m.participants_count ?? 0;
               return (
-                <div
+                <button
+                  type="button"
                   key={m.id ?? m.meeting_id}
                   onClick={() => navigate(`/meetings/${m.id ?? m.meeting_id}`)}
                   style={{
+                    ...pressableStyle,
+                    flexShrink: 0,
                     backgroundColor: '#fff',
                     border: `1px solid ${colors.surfaceContainerHighest}`,
                     borderRadius: 16,
@@ -104,19 +119,19 @@ export default function MeetingListPage() {
                         <Icon name={icon} size={22} color={fg} />
                       </div>
                       <div>
-                        <p style={{ fontSize: 16, fontWeight: '600', color: colors.onSurface }}>{m.name ?? m.title}</p>
-                        <p style={{ fontSize: 12, color: colors.outline, marginTop: 2 }}>
+                        <span style={{ display: 'block', fontSize: 16, fontWeight: '600', color: colors.onSurface }}>{m.name ?? m.title}</span>
+                        <span style={{ display: 'block', fontSize: 12, color: colors.outline, marginTop: 2 }}>
                           {count}명 · {m.purpose || '모임'}
-                        </p>
+                        </span>
                       </div>
                     </div>
-                    <Icon name="chevron_right" size={22} color="#a9abb6" />
+                    <Icon name="chevron_right" size={22} color={colors.outline} />
                   </div>
 
                   {/* 카드 하단 */}
                   <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     {/* 아바타 */}
-                    <div style={{ display: 'flex' }}>
+                    <div aria-hidden="true" style={{ display: 'flex' }}>
                       {Array.from({ length: Math.min(count, 3) }).map((_, i) => (
                         <div key={i} style={{
                           width: 26, height: 26, borderRadius: 999,
@@ -136,7 +151,7 @@ export default function MeetingListPage() {
                           marginLeft: -8,
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
                         }}>
-                          <span style={{ fontSize: 9, fontWeight: '600', color: colors.secondary }}>+{count - 3}</span>
+                          <span style={{ fontSize: 11, fontWeight: '600', color: colors.secondary }}>+{count - 3}</span>
                         </div>
                       )}
                     </div>
@@ -153,7 +168,7 @@ export default function MeetingListPage() {
                       </span>
                     </div>
                   </div>
-                </div>
+                </button>
               );
             })
           )}
@@ -165,7 +180,7 @@ export default function MeetingListPage() {
           <span style={{ fontSize: 16, fontWeight: '600', color: colors.onPrimary }}>모임 만들기</span>
         </Button>
 
-      </div>
+      </main>
 
       <BottomNav />
     </div>

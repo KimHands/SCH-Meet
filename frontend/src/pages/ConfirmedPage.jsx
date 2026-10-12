@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { colors } from '../styles/theme';
+import { colors, screenStyle } from '../styles/theme';
 import Button from '../components/Button';
 import Icon from '../components/Icon';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -22,9 +22,9 @@ export default function ConfirmedPage() {
     Promise.all([getConfirmedMeeting(id), getMyProfile()])
       .then(([data, profile]) => {
         setConfirmed(data);
-        setMyUserId(profile.id);
+        setMyUserId(profile?.id ?? null);
       })
-      .catch(() => setError('확정 정보를 불러오지 못했어요.'))
+      .catch((e) => setError(e.message || '확정 정보를 불러오지 못했어요.'))
       .finally(() => setLoading(false));
   }, [id]);
 
@@ -32,11 +32,11 @@ export default function ConfirmedPage() {
 
   if (error || !confirmed) {
     return (
-      <div style={{ height: '100vh', backgroundColor: colors.surface, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
-        <Icon name="error_outline" size={48} color={colors.outlineVariant} />
-        <p style={{ fontSize: 15, color: colors.onSurfaceVariant }}>{error || '정보를 불러올 수 없어요.'}</p>
+      <main style={{ ...screenStyle, alignItems: 'center', justifyContent: 'center', gap: 12, padding: '0 24px' }}>
+        <Icon name="error" size={48} color={colors.outlineVariant} />
+        <p role="alert" style={{ fontSize: 15, color: colors.onSurfaceVariant, textAlign: 'center' }}>{error || '정보를 불러올 수 없어요.'}</p>
         <Button variant="outline" label="돌아가기" onClick={() => navigate(-1)} height={44} fontSize={14} style={{ paddingLeft: 24, paddingRight: 24 }} />
-      </div>
+      </main>
     );
   }
 
@@ -46,7 +46,7 @@ export default function ConfirmedPage() {
   const members = confirmed.confirmed_members ?? [];
 
   return (
-    <div style={{ height: '100vh', backgroundColor: colors.surface, display: 'flex', flexDirection: 'column' }}>
+    <main style={screenStyle}>
 
       <div style={{ flex: 1, overflowY: 'auto', padding: '8px 22px 16px' }}>
 
@@ -59,9 +59,9 @@ export default function ConfirmedPage() {
           }}>
             <Icon name="check" size={48} color={colors.primary} />
           </div>
-          <p style={{ marginTop: 20, fontSize: 22, fontWeight: '700', textAlign: 'center', color: colors.onSurface }}>
+          <h1 style={{ marginTop: 20, fontSize: 22, fontWeight: '700', textAlign: 'center', color: colors.onSurface }}>
             일정이 확정되었어요!
-          </p>
+          </h1>
           <p style={{ marginTop: 6, fontSize: 13, color: colors.outline }}>{confirmed.meeting_name}</p>
         </div>
 
@@ -74,7 +74,7 @@ export default function ConfirmedPage() {
           <span style={{ fontSize: 12, fontWeight: '500', color: colors.inversePrimary }}>확정 시간</span>
           <p style={{ marginTop: 6, fontSize: 22, fontWeight: '700', color: '#fff' }}>{timeText}</p>
           {confirmed.confirmed_location && (
-            <p style={{ marginTop: 6, fontSize: 13, color: colors.inversePrimary }}>📍 {confirmed.confirmed_location}</p>
+            <p style={{ marginTop: 6, fontSize: 13, color: colors.inversePrimary }}>장소: {confirmed.confirmed_location}</p>
           )}
         </div>
 
@@ -98,7 +98,7 @@ export default function ConfirmedPage() {
                 borderBottom: i < members.length - 1 ? `1px solid ${colors.surfaceContainerLow}` : 'none',
               }}>
                 {m.profile_image_url ? (
-                  <img src={m.profile_image_url} alt={m.nickname} style={{ width: 30, height: 30, borderRadius: 9999, objectFit: 'cover' }} />
+                  <img src={m.profile_image_url} alt="" style={{ width: 30, height: 30, borderRadius: 9999, objectFit: 'cover' }} />
                 ) : (
                   <div style={{
                     width: 30, height: 30, borderRadius: 9999,
@@ -118,7 +118,7 @@ export default function ConfirmedPage() {
                     paddingLeft: 9, paddingRight: 9,
                     borderRadius: 99,
                   }}>
-                    <span style={{ fontSize: 10, fontWeight: '500', color: colors.primary }}>모임장</span>
+                    <span style={{ fontSize: 11, fontWeight: '500', color: colors.primary }}>모임장</span>
                   </div>
                 )}
               </div>
@@ -131,9 +131,9 @@ export default function ConfirmedPage() {
       {/* 하단 버튼 */}
       <div style={{ padding: '14px 22px 22px', display: 'flex', flexDirection: 'column', gap: 10 }}>
         <Button label="모임 상세로 이동" onClick={() => navigate(`/meetings/${id}`)} style={{ width: '100%' }} />
-        <Button variant="outline" label="홈으로" onClick={() => navigate('/')} style={{ width: '100%' }} />
+        <Button variant="outline" label="홈으로" onClick={() => navigate('/home')} style={{ width: '100%' }} />
       </div>
 
-    </div>
+    </main>
   );
 }

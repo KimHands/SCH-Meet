@@ -1,19 +1,33 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { colors } from '../styles/theme';
+import { colors, screenStyle } from '../styles/theme';
 import AppBar from '../components/AppBar';
 import Button from '../components/Button';
 import Icon from '../components/Icon';
+import Toast from '../components/Toast';
+import { useToast } from '../hooks/useToast';
 import { uploadTimetableUrl, uploadTimetableImage } from '../api/timetable';
 
+const MAX_IMAGE_BYTES = 1024 * 1024;
+const URL_HINT = '올바른 에브리타임 공유 URL 주소를 입력해 주세요.';
+
+function useCloseOnEscape(onClose) {
+  useEffect(() => {
+    const handleKey = (e) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', handleKey);
+    return () => document.removeEventListener('keydown', handleKey);
+  }, [onClose]);
+}
+
 function UrlGuideModal({ onClose }) {
+  useCloseOnEscape(onClose);
   return (
     <div style={{
       position: 'fixed', inset: 0, zIndex: 1000,
       backgroundColor: 'rgba(0,0,0,0.45)',
       display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
     }} onClick={onClose}>
-      <div style={{
+      <div role="dialog" aria-modal="true" aria-labelledby="url-guide-title" style={{
         width: '100%', maxWidth: 480,
         backgroundColor: '#fff',
         borderRadius: '20px 20px 0 0',
@@ -24,7 +38,7 @@ function UrlGuideModal({ onClose }) {
         {/* 핸들 */}
         <div style={{ width: 36, height: 4, borderRadius: 99, backgroundColor: colors.outlineVariant, margin: '0 auto 20px' }} />
 
-        <h2 style={{ fontSize: 17, fontWeight: '700', color: colors.onSurface, marginBottom: 20 }}>
+        <h2 id="url-guide-title" style={{ fontSize: 17, fontWeight: '700', color: colors.onSurface, marginBottom: 20 }}>
           에브리타임 URL 찾는 방법
         </h2>
 
@@ -43,7 +57,7 @@ function UrlGuideModal({ onClose }) {
             </p>
             <p style={{ fontSize: 13, lineHeight: '19px', color: colors.secondary }}>
               에브리타임 앱 하단의 <b>시간표</b> 탭을 누른 뒤,{' '}
-              우측 상단 <b>톱니바퀴(⚙️) 버튼</b>을 클릭하세요.
+              우측 상단 <b>톱니바퀴 버튼</b>을 클릭하세요.
             </p>
           </div>
         </div>
@@ -83,13 +97,11 @@ export default function TimetableUploadPage() {
   const [urlError, setUrlError] = useState('');
   const [urlOk, setUrlOk] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [toast, setToast] = useState('');
   const [showGuide, setShowGuide] = useState(false);
+  const { toast, showToast } = useToast();
 
   const fileInputRef = useRef(null);
   const [imageLoading, setImageLoading] = useState(false);
-
-  const MAX_IMAGE_BYTES = 1024 * 1024;
 
   const handleImagePick = async (e) => {
     const file = e.target.files?.[0];
@@ -112,13 +124,9 @@ export default function TimetableUploadPage() {
     }
   };
 
-  const showToast = (msg) => {
-    setToast(msg);
-    setTimeout(() => setToast(''), 3000);
-  };
-
   // 확인 버튼: URL 형식 체크 후 바로 API 호출
   const handleUrlCheck = async () => {
+    if (loading) return;
     if (!url.trim()) { setUrlError('URL을 입력해주세요.'); setUrlOk(false); return; }
 
     setLoading(true);
@@ -128,37 +136,27 @@ export default function TimetableUploadPage() {
       setUrlOk(true);
       showToast(`✓ 시간표 ${data.parsed_classes_count}개 수업이 등록되었습니다.`);
     } catch (e) {
-      setUrlError(e.message || '올바른 에브리타임 공유 URL 주소를 입력해 주세요.');
+      const hasServerDetail = e.detail && e.message === e.detail;
+      setUrlError(e.status === 400 && !hasServerDetail ? URL_HINT : e.message);
       setUrlOk(false);
     } finally {
       setLoading(false);
     }
   };
 
-  // 다음 버튼: URL 업로드 안 했어도 넘어갈 수 있음
+  // 다음 버튼: URL 업로드 안 했어도 넘어갈 수 있음 — 안내 토스트는 다음 화면에서 표시
   const handleNext = () => {
-    if (!urlOk) {
-      showToast('시간표를 등록하지 않고 넘어갑니다.');
-    }
-    navigate('/add-schedule');
+    const state = urlOk ? undefined : { toast: '시간표를 등록하지 않고 넘어갑니다.' };
+    navigate('/add-schedule', { state });
   };
 
-  return (
-    <div style={{ height: '100vh', backgroundColor: colors.surface, display: 'flex', flexDirection: 'column' }}>
-      {showGuide && <UrlGuideModal onClose={() => setShowGuide(false)} />}
+  const closeGuide = useCallback(() => setShowGuide(false), []);
 
-      {/* 토스트 메시지 */}
-      {toast && (
-        <div style={{
-          position: 'fixed', top: 20, left: '50%', transform: 'translateX(-50%)',
-          backgroundColor: colors.onSurface, color: '#fff',
-          padding: '10px 18px', borderRadius: 99,
-          fontSize: 13, fontWeight: '500',
-          zIndex: 999, whiteSpace: 'nowrap',
-        }}>
-          {toast}
-        </div>
-      )}
+  return (
+    <main style={screenStyle}>
+      {showGuide && <UrlGuideModal onClose={closeGuide} />}
+
+      <Toast message={toast} />
 
       <AppBar />
 
@@ -181,11 +179,14 @@ export default function TimetableUploadPage() {
           type="file"
           accept="image/png,image/jpeg,image/heic"
           onChange={handleImagePick}
+          tabIndex={-1}
+          aria-hidden="true"
           style={{ display: 'none' }}
         />
         <button
           type="button"
-          onClick={() => !imageLoading && fileInputRef.current?.click()}
+          onClick={() => fileInputRef.current?.click()}
+          disabled={imageLoading}
           style={{
             marginTop: 10, width: '100%',
             border: `1.5px dashed ${colors.outlineVariant}`,
@@ -195,7 +196,6 @@ export default function TimetableUploadPage() {
             display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
             cursor: imageLoading ? 'default' : 'pointer',
             opacity: imageLoading ? 0.6 : 1,
-            fontFamily: "'Be Vietnam Pro', sans-serif",
           }}
         >
           <Icon name="cloud_upload" size={34} color={colors.primary} />
@@ -215,7 +215,7 @@ export default function TimetableUploadPage() {
         {/* URL 입력 */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
           <Icon name="link" size={18} color={colors.primary} />
-          <span style={{ fontSize: 13, fontWeight: '600', color: colors.onSurface }}>에브리타임 시간표 URL 복사</span>
+          <label htmlFor="everytime-url" style={{ fontSize: 13, fontWeight: '600', color: colors.onSurface }}>에브리타임 시간표 URL 복사</label>
         </div>
         <p style={{ marginTop: 7, marginBottom: 10, fontSize: 12, lineHeight: '17px', color: colors.secondary }}>
           에브리타임 앱에서 시간표를 공유하고<br />생성된 URL을 붙여넣어 주세요.
@@ -223,7 +223,12 @@ export default function TimetableUploadPage() {
 
         <div style={{ display: 'flex', gap: 8 }}>
           <input
+            id="everytime-url"
+            type="url"
+            inputMode="url"
             value={url}
+            aria-invalid={!!urlError}
+            aria-describedby={urlError ? 'everytime-url-error' : undefined}
             onChange={(e) => { setUrl(e.target.value); setUrlOk(false); setUrlError(''); }}
             placeholder="URL을 붙여넣어 주세요"
             style={{
@@ -232,18 +237,18 @@ export default function TimetableUploadPage() {
               borderRadius: 8, backgroundColor: '#fff',
               paddingLeft: 13, paddingRight: 13,
               fontSize: 13, color: colors.onSurface,
-              fontFamily: "'Be Vietnam Pro', sans-serif",
-              outline: 'none',
+              minWidth: 0,
             }}
           />
           <Button
             label={loading ? '확인 중...' : '확인'}
             onClick={handleUrlCheck}
+            disabled={loading}
             height={44} fontSize={12}
-            style={{ paddingLeft: 14, paddingRight: 14, opacity: loading ? 0.6 : 1 }}
+            style={{ paddingLeft: 14, paddingRight: 14 }}
           />
         </div>
-        {urlError && <p style={{ marginTop: 4, fontSize: 12, color: colors.error }}>{urlError}</p>}
+        {urlError && <p id="everytime-url-error" role="alert" style={{ marginTop: 4, fontSize: 12, color: colors.error }}>{urlError}</p>}
         {urlOk && <p style={{ marginTop: 4, fontSize: 12, color: colors.primary }}>✓ 시간표가 등록되었습니다.</p>}
 
         {/* TIP 박스 */}
@@ -267,6 +272,6 @@ export default function TimetableUploadPage() {
         <Button label="다음" onClick={handleNext} height={52} fontSize={15} style={{ flex: 1.6 }} />
       </div>
 
-    </div>
+    </main>
   );
 }

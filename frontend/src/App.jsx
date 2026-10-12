@@ -1,11 +1,9 @@
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { useEffect } from 'react';
+import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { token } from './utils/token';
-
-function RootRedirect() {
-  if (token.exists()) return <Navigate to="/home" replace />;
-  if (localStorage.getItem('onboardingDone')) return <Navigate to="/login" replace />;
-  return <Navigate to="/onboarding-1" replace />;
-}
+import { setAuthFailureHandler } from './api/client';
+import RequireAuth from './components/RequireAuth';
+import ServerWakeNotice from './components/ServerWakeNotice';
 
 // 온보딩 / 인증
 import OnboardingPage from './pages/OnboardingPage';
@@ -32,41 +30,65 @@ import InvitePage from './pages/InvitePage';
 import AiResultPage from './pages/AiResultPage';
 import ConfirmedPage from './pages/ConfirmedPage';
 
+function RootRedirect() {
+  if (token.exists()) return <Navigate to="/home" replace />;
+  if (localStorage.getItem('onboardingDone')) return <Navigate to="/login" replace />;
+  return <Navigate to="/onboarding-1" replace />;
+}
+
+// 세션 만료 시 전체 새로고침 없이 로그인 화면으로 이동
+function useAuthFailureRedirect() {
+  const navigate = useNavigate();
+  useEffect(() => {
+    setAuthFailureHandler(() => navigate('/login', { replace: true }));
+  }, [navigate]);
+}
+
 export default function App() {
+  useAuthFailureRedirect();
+
   return (
-    <Routes>
-      {/* 온보딩 & 로그인 */}
-      <Route path="/onboarding-1" element={<OnboardingPage />} />
-      <Route path="/onboarding-2" element={<OnboardingPage />} />
-      <Route path="/login" element={<LoginPage />} />
+    <>
+      <ServerWakeNotice />
+      <Routes>
+        {/* 온보딩 & 로그인 */}
+        <Route path="/onboarding-1" element={<OnboardingPage />} />
+        <Route path="/onboarding-2" element={<OnboardingPage />} />
+        <Route path="/login" element={<LoginPage />} />
 
-      {/* 초기 설정 플로우 */}
-      <Route path="/upload-timetable" element={<TimetableUploadPage />} />
-      <Route path="/upload-timetable/preview" element={<TimetablePreviewPage />} />
-      <Route path="/add-schedule" element={<FixedSchedulePage />} />
+        {/* 루트 진입점 */}
+        <Route path="/" element={<RootRedirect />} />
 
-      {/* 루트 진입점 */}
-      <Route path="/" element={<RootRedirect />} />
-      <Route path="/home" element={<HomePage />} />
-      <Route path="/meetings" element={<MeetingListPage />} />
-      <Route path="/calendar" element={<CalendarPage />} />
-      <Route path="/notifications" element={<NotificationsPage />} />
-      <Route path="/mypage" element={<MyPage />} />
+        {/* 초대 — 비로그인도 모임 정보는 볼 수 있고, 참여 시 로그인으로 안내 */}
+        <Route path="/invite/:token" element={<InvitePage />} />
+        <Route path="/invite/:token/join" element={<InvitePage />} />
 
-      {/* 모임 */}
-      <Route path="/meetings/new" element={<CreateMeetingPage />} />
-      <Route path="/meetings/:id" element={<MeetingDetailPage />} />
+        {/* 로그인 필요 */}
+        <Route element={<RequireAuth />}>
+          {/* 초기 설정 플로우 */}
+          <Route path="/upload-timetable" element={<TimetableUploadPage />} />
+          <Route path="/upload-timetable/preview" element={<TimetablePreviewPage />} />
+          <Route path="/add-schedule" element={<FixedSchedulePage />} />
 
-      {/* 초대 */}
-      <Route path="/invite/:token" element={<InvitePage />} />
-      <Route path="/invite/:token/join" element={<InvitePage />} />
+          {/* 메인 탭 */}
+          <Route path="/home" element={<HomePage />} />
+          <Route path="/meetings" element={<MeetingListPage />} />
+          <Route path="/calendar" element={<CalendarPage />} />
+          <Route path="/notifications" element={<NotificationsPage />} />
+          <Route path="/mypage" element={<MyPage />} />
 
-      {/* AI 추천 / 확정 */}
-      <Route path="/meetings/:id/ai-result" element={<AiResultPage />} />
-      <Route path="/meetings/:id/confirmed" element={<ConfirmedPage />} />
+          {/* 모임 */}
+          <Route path="/meetings/new" element={<CreateMeetingPage />} />
+          <Route path="/meetings/:id" element={<MeetingDetailPage />} />
 
-      {/* 그 외 → 홈 */}
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+          {/* AI 추천 / 확정 */}
+          <Route path="/meetings/:id/ai-result" element={<AiResultPage />} />
+          <Route path="/meetings/:id/confirmed" element={<ConfirmedPage />} />
+        </Route>
+
+        {/* 그 외 → 홈 */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </>
   );
 }

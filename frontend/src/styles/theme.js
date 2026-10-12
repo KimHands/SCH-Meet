@@ -1,4 +1,4 @@
-// MeetTime 디자인 토큰 — DESIGN.md 기반
+// SCH-Meet 디자인 토큰 — DESIGN.md 기반
 // Material Design 3, Deep Blue primary
 
 export const colors = {
@@ -19,7 +19,7 @@ export const colors = {
   inverseOnSurface: '#f1f0f7',
 
   // Outline
-  outline: '#747782',
+  outline: '#62656f',        // 보조 텍스트 겸용 — 흰/연회색 배경 대비 4.5:1 이상
   outlineVariant: '#c4c6d2',
 
   // Primary
@@ -73,7 +73,7 @@ export const colors = {
 
   // Semantic helpers
   success: '#1f8a5b',
-  warning: '#b58a00',
+  warning: '#7a5c00',        // surfaceContainerLow 배경 대비 5.6:1
   divider: '#f4f3f9',
 };
 
@@ -109,4 +109,52 @@ export const spacing = {
 export const elevation = {
   level1: '0px 1px 4px rgba(0,0,0,0.05)',
   level2: '0px 6px 12px rgba(0,25,69,0.10)',
+};
+
+// 전체 화면 페이지 컨테이너 — --app-height 는 index.css 에서 100dvh(미지원 시 100vh)
+export const screenStyle = {
+  height: 'var(--app-height)',
+  backgroundColor: colors.surface,
+  display: 'flex',
+  flexDirection: 'column',
+};
+
+// 텍스트 입력 공통 스타일
+export const inputStyle = (hasError = false) => ({
+  width: '100%',
+  height: 48,
+  border: `1px solid ${hasError ? colors.error : colors.outlineVariant}`,
+  borderRadius: 8,
+  paddingLeft: 14,
+  paddingRight: 14,
+  fontSize: 14,
+  color: colors.onSurface,
+  boxSizing: 'border-box',
+  backgroundColor: '#fff',
+});
+
+export const fieldLabelStyle = {
+  display: 'block',
+  fontSize: 13,
+  fontWeight: '600',
+  color: colors.onSurfaceVariant,
+  marginBottom: 7,
+};
+
+// 아이콘만 있는 버튼 공통 리셋
+export const iconButtonStyle = {
+  background: 'none',
+  border: 'none',
+  cursor: 'pointer',
+  padding: 4,
+  display: 'flex',
+};
+
+// 카드/행 전체가 눌리는 버튼 리셋 (div onClick 대체)
+export const pressableStyle = {
+  width: '100%',
+  textAlign: 'left',
+  font: 'inherit',
+  color: 'inherit',
+  cursor: 'pointer',
 };

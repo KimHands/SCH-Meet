@@ -17,21 +17,12 @@ export async function uploadTimetableUrl(url) {
 // 시간표 이미지 업로드 (OCR)
 // POST /api/timetables/upload-image/
 export async function uploadTimetableImage(imageFile) {
-  const token = localStorage.getItem('accessToken');
   const formData = new FormData();
   formData.append('file', imageFile);
-
-  const res = await fetch(
-    `${import.meta.env.VITE_API_BASE_URL}/api/timetables/upload-image/`,
-    {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}` },
-      body: formData,
-    }
-  );
-
-  if (!res.ok) throw new Error('이미지 업로드에 실패했어요.');
-  return res.json();
+  return apiClient('/api/timetables/upload-image/', {
+    method: 'POST',
+    body: formData,
+  });
 }
 
 // 통합 시간표 조회 (수업 + 고정 일정 병합)
