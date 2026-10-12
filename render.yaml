@@ -37,4 +37,4 @@ services:
       - key: GOOGLE_CLIENT_SECRET
         sync: false
       - key: OCR_SPACE_API_KEY
-        sync: false               # 예: K82796185288957
+        sync: false               # OCR.space에서 발급받은 키 (값은 저장소에 적지 않는다)

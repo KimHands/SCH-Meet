@@ -14,7 +14,7 @@
    |----|---------|
    | `GOOGLE_CLIENT_ID` | 구글 OAuth 클라이언트 ID |
    | `GOOGLE_CLIENT_SECRET` | 구글 OAuth 시크릿 |
-   | `OCR_SPACE_API_KEY` | `K82796185288957` |
+   | `OCR_SPACE_API_KEY` | (OCR.space 발급 키 — Render 대시보드에만 입력) |
    | `DJANGO_ALLOWED_HOSTS` | (배포 후 채움) `schmeet-api.onrender.com` |
    | `FRONTEND_ORIGINS` | (Vercel 배포 후) `https://sch-meet.vercel.app` |
    | `FRONTEND_BASE_URL` | (Vercel 배포 후) `https://sch-meet.vercel.app` |
@@ -58,3 +58,7 @@
 - Render 무료 Postgres는 보존기간 제한이 있으니 운영 전 유료 플랜/백업 고려.
 - Render 무료 웹서비스는 유휴 시 절전(cold start)으로 첫 응답이 느릴 수 있음.
 - `OCR_SPACE_API_KEY`, `GOOGLE_CLIENT_SECRET` 등 실제 비밀값은 **대시보드에만** 입력(코드/`.env` 커밋 금지).
+- 백엔드 주소를 바꾸면(서비스명·커스텀 도메인) `frontend/vercel.json`의 CSP `connect-src`도 같이 바꿀 것. 안 바꾸면 브라우저가 모든 API 호출을 막는다.
+- 운영 백엔드는 `RENDER=true`일 때 HTTPS 리다이렉트·HSTS·보안 쿠키가 켜진다. 레이트리밋용 클라이언트 IP는 `X-Forwarded-For`의 오른쪽에서 `TRUSTED_PROXY_COUNT`(기본 1)번째 값을 쓴다 — 배포 후 실제 헤더로 프록시 단 수를 확인할 것.
+- 관리자 페이지(`/admin/`)는 기본 비노출. 필요할 때만 `DJANGO_ADMIN_ENABLED=True`.
+- 마이그레이션 `0011`은 같은 모임의 중복 참여 행을 정리한 뒤 고유 제약을 건다(역방향 복구 불가). 배포 전 DB 백업 권장.
