@@ -1,8 +1,10 @@
 import json
 import re
-from xml.etree import ElementTree
+from xml.etree.ElementTree import ParseError
 
 import requests
+from defusedxml import DefusedXmlException
+from defusedxml import ElementTree
 from django.db import transaction
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
@@ -11,6 +13,7 @@ from ..models import FixedSchedule, TimetableClass
 from .common import method_not_allowed
 from .user import _get_authorized_user
 from . import ocr
+from .throttle import check_rate_limit
 
 
 EVERYTIME_HOSTS = {'everytime.kr', 'www.everytime.kr', 'm.everytime.kr'}
@@ -88,10 +91,23 @@ def _empty_weekly_timeline():
     return {day_code: [] for day_code in DAY_CODES}
 
 
+MAX_EVERYTIME_RESPONSE_BYTES = 2 * 1024 * 1024
+
+
+def _read_limited_text(response):
+    """응답을 상한+1바이트까지만 읽어, 상한을 넘으면 None을 돌려준다."""
+    body = response.raw.read(MAX_EVERYTIME_RESPONSE_BYTES + 1, decode_content=True)
+    if len(body) > MAX_EVERYTIME_RESPONSE_BYTES:
+        return None
+    return body.decode(response.encoding or 'utf-8', errors='replace')
+
+
 def _parse_everytime_response(xml_text, source_identifier):
+    if len(xml_text) > MAX_EVERYTIME_RESPONSE_BYTES:
+        return None
     try:
         root = ElementTree.fromstring(xml_text)
-    except ElementTree.ParseError:
+    except (ParseError, DefusedXmlException):
         return None
 
     table = root.find('table')
@@ -162,11 +178,17 @@ def timetable_upload_url(request):
     try:
         body = json.loads(request.body.decode() or '{}')
     except Exception:
+        body = None
+    if not isinstance(body, dict):
         return JsonResponse({'detail': 'Invalid JSON body'}, status=400)
 
     url = body.get('url')
     if not isinstance(url, str) or not url.strip():
         return JsonResponse({'detail': 'url is required'}, status=400)
+
+    rate_limited = check_rate_limit('everytime', user.id)
+    if rate_limited:
+        return rate_limited
 
     url = url.strip()
     if not _is_everytime_url(url):
@@ -194,14 +216,17 @@ def timetable_upload_url(request):
                 'friendinfo': 'true',
             },
             timeout=15,
+            stream=True,
         )
+        with response:
+            response_text = _read_limited_text(response) if response.status_code == 200 else None
     except requests.RequestException:
         return JsonResponse({'detail': 'Failed to load Everytime timetable'}, status=502)
 
-    if response.status_code != 200:
+    if response_text is None:
         return JsonResponse({'detail': 'Failed to load Everytime timetable'}, status=502)
 
-    parsed_response = _parse_everytime_response(response.text, identifier)
+    parsed_response = _parse_everytime_response(response_text, identifier)
     if not parsed_response:
         return JsonResponse({'detail': 'Failed to parse Everytime timetable'}, status=502)
 
@@ -238,6 +263,25 @@ def timetable_upload_url(request):
 
 
 MAX_IMAGE_BYTES = 1024 * 1024  # OCR.space 무료 한도 1MB
+MULTIPART_OVERHEAD_BYTES = 64 * 1024
+IMAGE_SIGNATURES = (
+    b'\x89PNG\r\n\x1a\n',
+    b'\xff\xd8\xff',
+)
+
+
+def _is_supported_image(head_bytes):
+    if head_bytes.startswith(IMAGE_SIGNATURES):
+        return True
+    return head_bytes[:4] == b'RIFF' and head_bytes[8:12] == b'WEBP'
+
+
+def _declared_body_too_large(request):
+    try:
+        content_length = int(request.META.get('CONTENT_LENGTH') or 0)
+    except ValueError:
+        return False
+    return content_length > MAX_IMAGE_BYTES + MULTIPART_OVERHEAD_BYTES
 
 
 @csrf_exempt
@@ -249,14 +293,25 @@ def timetable_upload_image(request):
     if error_response:
         return error_response
 
+    if _declared_body_too_large(request):
+        return JsonResponse({'detail': '이미지는 1MB 이하만 가능합니다'}, status=413)
+
     upload = request.FILES.get('file')
     if not upload or upload.size == 0:
         return JsonResponse({'detail': '파일이 필요합니다'}, status=400)
     if upload.size > MAX_IMAGE_BYTES:
         return JsonResponse({'detail': '이미지는 1MB 이하만 가능합니다'}, status=413)
 
+    image_bytes = upload.read()
+    if not _is_supported_image(image_bytes[:12]):
+        return JsonResponse({'detail': 'PNG, JPG, WEBP 이미지만 올릴 수 있어요'}, status=400)
+
+    rate_limited = check_rate_limit('ocr', user.id)
+    if rate_limited:
+        return rate_limited
+
     try:
-        words = ocr.call_ocr_space(upload.read(), upload.name)
+        words = ocr.call_ocr_space(image_bytes, upload.name)
     except ocr.OcrNotConfigured:
         return JsonResponse({'detail': 'OCR 기능이 설정되지 않았습니다'}, status=503)
     except ocr.OcrServiceError:
@@ -276,6 +331,15 @@ def timetable_upload_image(request):
 
 MAX_CONFIRM_CLASSES = 50
 _CLOCK_PATTERN = re.compile(r'^([01]?\d|2[0-3]):([0-5]\d)$')
+
+
+def _optional_text(value):
+    """문자열이면 공백을 제거해 돌려주고, 없으면 '', 다른 타입이면 None."""
+    if value is None:
+        return ''
+    if not isinstance(value, str):
+        return None
+    return value.strip()
 
 
 def _clock_to_minute(value):
@@ -312,7 +376,11 @@ def timetable_image_confirm(request):
         if not isinstance(item, dict):
             return JsonResponse({'detail': f'{index}번째 항목 형식이 올바르지 않습니다'}, status=400)
 
-        name = (item.get('name') or '').strip()
+        name = _optional_text(item.get('name'))
+        place = _optional_text(item.get('place'))
+        professor = _optional_text(item.get('professor'))
+        if name is None or place is None or professor is None:
+            return JsonResponse({'detail': f'{index}번째 항목 형식이 올바르지 않습니다'}, status=400)
         if not name:
             return JsonResponse({'detail': f'{index}번째 과목명이 비어 있습니다'}, status=400)
 
@@ -332,8 +400,8 @@ def timetable_image_confirm(request):
             'day': day,
             'start_minute': start_minute,
             'end_minute': end_minute,
-            'place': (item.get('place') or '')[:100],
-            'professor': (item.get('professor') or '')[:200],
+            'place': place[:100],
+            'professor': professor[:200],
         })
 
     with transaction.atomic():
