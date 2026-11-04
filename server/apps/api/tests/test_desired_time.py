@@ -1,5 +1,3 @@
-from types import SimpleNamespace
-
 from django.test import SimpleTestCase
 
 from api.endpoints.meetings import _does_slot_match_requested_time
@@ -9,8 +7,7 @@ DAY_LABELS = {'MON': '월', 'TUE': '화', 'WED': '수', 'THU': '목', 'FRI': '�
 
 
 def _reasons(desired_time, day_code):
-    meeting = SimpleNamespace(desired_time=desired_time)
-    return _does_slot_match_requested_time(day_code, AFTERNOON, meeting)
+    return _does_slot_match_requested_time(day_code, AFTERNOON, desired_time)
 
 
 class RequestedDayMatchTests(SimpleTestCase):

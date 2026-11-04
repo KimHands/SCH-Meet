@@ -6,8 +6,7 @@ import Icon from '../components/Icon';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { getConfirmedMeeting } from '../api/meetings';
 import { getMyProfile } from '../api/auth';
-
-const DAY_LABEL = { MON: '월요일', TUE: '화요일', WED: '수요일', THU: '목요일', FRI: '금요일', SAT: '토요일', SUN: '일요일' };
+import { formatConfirmedTime } from '../utils/meetingTime';
 
 export default function ConfirmedPage() {
   const navigate = useNavigate();
@@ -40,9 +39,7 @@ export default function ConfirmedPage() {
     );
   }
 
-  const ct = confirmed.confirmed_time;
-  const dayLabel = ct ? (DAY_LABEL[ct.day] ?? ct.day) : null;
-  const timeText = ct ? `${dayLabel} ${ct.start_time} ~ ${ct.end_time}` : '시간 미정';
+  const timeText = formatConfirmedTime(confirmed.confirmed_time);
   const members = confirmed.confirmed_members ?? [];
 
   return (
@@ -72,7 +69,7 @@ export default function ConfirmedPage() {
           display: 'flex', flexDirection: 'column', alignItems: 'center',
         }}>
           <span style={{ fontSize: 12, fontWeight: '500', color: colors.inversePrimary }}>확정 시간</span>
-          <p style={{ marginTop: 6, fontSize: 22, fontWeight: '700', color: '#fff' }}>{timeText}</p>
+          <p style={{ marginTop: 6, fontSize: 20, fontWeight: '700', color: '#fff', textAlign: 'center' }}>{timeText}</p>
           {confirmed.confirmed_location && (
             <p style={{ marginTop: 6, fontSize: 13, color: colors.inversePrimary }}>장소: {confirmed.confirmed_location}</p>
           )}

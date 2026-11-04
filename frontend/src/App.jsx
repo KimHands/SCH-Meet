@@ -12,6 +12,7 @@ import LoginPage from './pages/LoginPage';
 // 초기 설정 플로우
 import TimetableUploadPage from './pages/TimetableUploadPage';
 import FixedSchedulePage from './pages/FixedSchedulePage';
+import LegalPage from './pages/LegalPage';
 
 // 메인 탭
 import HomePage from './pages/HomePage';
@@ -54,6 +55,8 @@ export default function App() {
         <Route path="/onboarding-1" element={<OnboardingPage />} />
         <Route path="/onboarding-2" element={<OnboardingPage />} />
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/terms" element={<LegalPage documentKey="terms" />} />
+        <Route path="/privacy" element={<LegalPage documentKey="privacy" />} />
 
         {/* 루트 진입점 */}
         <Route path="/" element={<RootRedirect />} />
@@ -78,6 +81,7 @@ export default function App() {
           {/* 모임 */}
           <Route path="/meetings/new" element={<CreateMeetingPage />} />
           <Route path="/meetings/:id" element={<MeetingDetailPage />} />
+          <Route path="/meetings/:id/edit" element={<CreateMeetingPage />} />
 
           {/* AI 추천 / 확정 */}
           <Route path="/meetings/:id/ai-result" element={<AiResultPage />} />

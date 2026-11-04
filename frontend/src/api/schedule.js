@@ -21,6 +21,15 @@ export async function addSchedule({ title, repeat_days, start_time, end_time }) 
   // 응답: 201 Created, 등록된 레코드 반환
 }
 
+// 고정 일정 수정
+// PATCH /api/schedules/fixed/{id}/
+export async function updateSchedule(scheduleId, { title, repeat_days, start_time, end_time }) {
+  return apiClient(`/api/schedules/fixed/${scheduleId}/`, {
+    method: 'PATCH',
+    body: JSON.stringify({ title, repeat_days, start_time, end_time }),
+  });
+}
+
 // 고정 일정 삭제
 // DELETE /api/schedules/fixed/{id}/
 export async function deleteSchedule(scheduleId) {

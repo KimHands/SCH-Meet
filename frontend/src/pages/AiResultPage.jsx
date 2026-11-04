@@ -7,6 +7,7 @@ import Icon from '../components/Icon';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { getRecommendations, getMeeting, confirmMeeting } from '../api/meetings';
 import { formatDuration } from '../utils/duration';
+import { formatDateWithWeekday } from '../utils/meetingTime';
 
 const DAY_LABEL = { MON: '월요일', TUE: '화요일', WED: '수요일', THU: '목요일', FRI: '금요일', SAT: '토요일', SUN: '일요일' };
 
@@ -28,8 +29,9 @@ function EmptyState({ icon, title, message, onBack }) {
   );
 }
 
+const recommendationDay = (rec) => (rec.date ? formatDateWithWeekday(rec.date) : DAY_LABEL[rec.day] ?? rec.day_label ?? rec.day);
+
 function RecommendationCard({ rec, isFirst, canConfirm, isConfirming, disabled, onConfirm }) {
-  const dayLabel = DAY_LABEL[rec.day] ?? rec.day_label ?? rec.day;
   return (
     <li style={{
       marginTop: 14,
@@ -50,8 +52,8 @@ function RecommendationCard({ rec, isFirst, canConfirm, isConfirming, disabled, 
         {isFirst && <Icon name="workspace_premium" size={22} color={colors.primary} />}
       </div>
 
-      <h3 style={{ marginTop: 14, fontSize: isFirst ? 22 : 20, fontWeight: '700', color: isFirst ? colors.primary : colors.onSurface }}>
-        {dayLabel} {rec.start_time} ~ {rec.end_time}
+      <h3 style={{ marginTop: 14, fontSize: isFirst ? 20 : 18, fontWeight: '700', color: isFirst ? colors.primary : colors.onSurface }}>
+        {recommendationDay(rec)} {rec.start_time} ~ {rec.end_time}
       </h3>
       <p style={{ marginTop: 2, fontSize: 12, color: colors.outline }}>{formatDuration(rec.duration_minutes)}</p>
 
@@ -82,7 +84,7 @@ export default function AiResultPage() {
   const { id } = useParams();
 
   const [data, setData] = useState(null);
-  const [isCreator, setIsCreator] = useState(false);
+  const [meeting, setMeeting] = useState(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [confirmingId, setConfirmingId] = useState(null);
@@ -93,12 +95,17 @@ export default function AiResultPage() {
 
   useEffect(() => {
     Promise.all([loadRecommendations(), getMeeting(id)])
-      .then(([, meeting]) => setIsCreator(meeting?.my_role === 'CREATOR'))
+      .then(([, loadedMeeting]) => setMeeting(loadedMeeting))
       .catch((e) => setLoadError(e.message || '추천 결과를 불러오지 못했어요.'))
       .finally(() => setLoading(false));
   }, [id, loadRecommendations]);
 
+  const isCreator = meeting?.my_role === 'CREATOR';
+  const isOpen = meeting?.status === 'OPEN';
+
   const handleConfirm = async (rec) => {
+    const when = `${recommendationDay(rec)} ${rec.start_time} ~ ${rec.end_time}`;
+    if (!window.confirm(`${when}으로 확정할까요?\n참여자 모두에게 알림이 가요. 필요하면 모임 상세에서 취소할 수 있어요.`)) return;
     setConfirmingId(rec.recommendation_id);
     setConfirmError('');
     try {
@@ -106,6 +113,7 @@ export default function AiResultPage() {
         recommendationId: rec.recommendation_id,
         day: rec.day,
         startTime: rec.start_time,
+        date: rec.date,
       });
       navigate(`/meetings/${id}/confirmed`);
     } catch (e) {
@@ -139,14 +147,30 @@ export default function AiResultPage() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <Icon name="auto_awesome" size={20} color={colors.tertiaryContainer} />
           <span style={{ fontSize: 13, color: colors.secondary }}>
-            AI가 {data.participant_count}명의 일정을 분석했어요
+            {data.participant_count}명의 일정을 비교했어요
           </span>
         </div>
 
-        {!isCreator && (
+        {!isOpen && (
+          <p style={{ marginTop: 8, fontSize: 12, color: colors.outline }}>
+            이미 일정이 정해진 모임이에요. 변경은 모임 상세에서 할 수 있어요.
+          </p>
+        )}
+        {isOpen && !isCreator && (
           <p style={{ marginTop: 8, fontSize: 12, color: colors.outline }}>
             일정 확정은 모임장만 할 수 있어요.
           </p>
+        )}
+
+        {data.members_without_schedule?.length > 0 && (
+          <div role="status" style={{ marginTop: 10, backgroundColor: colors.errorContainer, borderRadius: 12, padding: '10px 14px' }}>
+            <p style={{ fontSize: 13, fontWeight: '600', color: colors.onErrorContainer }}>
+              {data.members_without_schedule.join(', ')}님의 시간표가 없어요
+            </p>
+            <p style={{ marginTop: 3, fontSize: 12, lineHeight: '17px', color: colors.onErrorContainer }}>
+              이 참여자는 항상 가능한 것으로 계산되어 실제로는 안 맞을 수 있어요. 등록을 부탁한 뒤 확정하는 게 좋아요.
+            </p>
+          </div>
         )}
 
         {confirmError && (
@@ -159,7 +183,7 @@ export default function AiResultPage() {
               key={rec.recommendation_id}
               rec={rec}
               isFirst={index === 0}
-              canConfirm={isCreator}
+              canConfirm={isCreator && isOpen}
               isConfirming={confirmingId === rec.recommendation_id}
               disabled={confirmingId !== null}
               onConfirm={handleConfirm}

@@ -9,6 +9,7 @@ import { getDashboardSummary } from '../api/dashboard';
 import { getMeetings } from '../api/meetings';
 import { getMyProfile } from '../api/auth';
 import { getConsolidatedTimetable } from '../api/timetable';
+import { formatConfirmedTime } from '../utils/meetingTime';
 
 const DAYS = ['월', '화', '수', '목', '금', '토', '일'];
 const DAY_CODES = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
@@ -59,7 +60,7 @@ function SummaryCards({ summary }) {
   const cards = [
     { icon: 'school',       fg: colors.primary,           n: count(summary?.remaining_classes),            label: '남은 수업' },
     { icon: 'assignment',   fg: colors.primary,           n: count(summary?.today_tasks),                  label: '오늘 일정' },
-    { icon: 'groups',       fg: colors.primary,           n: count(summary?.pending_requests),             label: '대기 중' },
+    { icon: 'groups',       fg: colors.primary,           n: count(summary?.pending_requests),             label: '새 참여자' },
     { icon: 'auto_awesome', fg: colors.tertiaryContainer, n: count(summary?.weekly_recommendations_count), label: '이번 주 추천' },
   ];
   return (
@@ -133,9 +134,10 @@ function MiniBlock({ block }) {
   if (!mainItem) return null;
   const topPct = ((block.start_minute / 60 - MINI_START) / MINI_TOTAL) * 100;
   const heightPct = (((block.end_minute - block.start_minute) / 60) / MINI_TOTAL) * 100;
+  const titles = block.items.map((it) => it.title).join(', ');
   return (
     <div
-      title={block.items.map((it) => it.title).join(', ')}
+      title={titles}
       style={{
         position: 'absolute',
         top: `${topPct}%`,
@@ -143,8 +145,13 @@ function MiniBlock({ block }) {
         left: 1, right: 1,
         backgroundColor: blockColor(mainItem),
         borderRadius: 2,
+        overflow: 'hidden',
       }}
-    />
+    >
+      <span style={{ display: 'block', padding: '1px 2px', fontSize: 9, lineHeight: '11px', whiteSpace: 'nowrap', color: mainItem.source === 'meeting' ? '#fff' : colors.onSurface }}>
+        {titles}
+      </span>
+    </div>
   );
 }
 
@@ -172,7 +179,9 @@ function MeetingCard({ meeting, onOpen }) {
         <div style={{ flex: 1 }}>
           <span style={{ display: 'block', fontSize: 14, fontWeight: '600', color: colors.onSurface }}>{meeting.name ?? meeting.title}</span>
           <span style={{ display: 'block', fontSize: 11, color: colors.outline, marginTop: 2 }}>
-            {meeting.participant_count}명 · {meeting.purpose || '모임'}
+            {meeting.status === 'CONFIRMED'
+              ? `확정 · ${formatConfirmedTime(meeting.confirmed_time)}`
+              : `${meeting.participant_count}명 · ${meeting.purpose || '모임'}`}
           </span>
         </div>
         <Icon name="chevron_right" size={20} color={colors.outline} />

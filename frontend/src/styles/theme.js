@@ -147,7 +147,11 @@ export const iconButtonStyle = {
   border: 'none',
   cursor: 'pointer',
   padding: 4,
+  minWidth: 44,
+  minHeight: 44,
   display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
 };
 
 // 카드/행 전체가 눌리는 버튼 리셋 (div onClick 대체)

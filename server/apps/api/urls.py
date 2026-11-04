@@ -22,5 +22,6 @@ urlpatterns = [
     path('meetings/<int:meeting_id>/confirmed/', views.meeting_confirmed, name='meeting-confirmed'),
     path('dashboard/summary/', views.dashboard_summary, name='dashboard-summary'),
     path('notifications/', views.notifications_collection, name='notifications-collection'),
+    path('notifications/read-all/', views.notifications_read_all, name='notifications-read-all'),
     path('notifications/read/<int:notification_id>/', views.notification_read, name='notification-read'),
 ]
