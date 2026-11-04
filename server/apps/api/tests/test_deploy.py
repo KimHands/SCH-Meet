@@ -72,10 +72,10 @@ class DeploySettingsTest(SimpleTestCase):
         self.assertEqual(loaded['SECURE_PROXY_SSL_HEADER'], ['HTTP_X_FORWARDED_PROTO', 'https'])
         self.assertEqual(loaded['SECURE_REDIRECT_EXEMPT'], [r'^api/health/$'])
 
-    def test_render_still_enables_security(self):
+    def test_render_flag_no_longer_changes_security(self):
         loaded = _load_settings(RENDER='true')
-        self.assertTrue(loaded['SECURE_SSL_REDIRECT'])
-        self.assertEqual(loaded['TRUSTED_PROXY_COUNT'], 1)
+        self.assertFalse(loaded['SECURE_SSL_REDIRECT'])
+        self.assertEqual(loaded['TRUSTED_PROXY_COUNT'], 0)
 
     def test_security_off_by_default(self):
         self.assertFalse(_load_settings()['SECURE_SSL_REDIRECT'])

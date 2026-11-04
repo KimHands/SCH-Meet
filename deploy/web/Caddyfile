@@ -1,4 +1,4 @@
-# 정적 파일 서빙 + /api/ 프록시(frontend/vercel.json 헤더 규칙을 옮김). TLS는 Cloudflare가 끝낸다
+# 정적 파일 서빙 + /api/ 프록시. TLS는 Cloudflare가 끝낸다
 {
 	admin off
 	auto_https off

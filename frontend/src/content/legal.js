@@ -76,7 +76,7 @@ export const LEGAL_DOCUMENTS = {
         body: [
           'Google: 로그인 인증',
           '에브리타임: 입력한 공유 URL의 시간표 조회',
-          'Vercel, Render: 현재 서비스 운영. 이전 후에는 Oracle Cloud, Cloudflare(백업 저장 포함)',
+          'Oracle Cloud: 서비스 운영', 'Cloudflare: 접속 경로와 백업 저장',
         ],
       },
       {

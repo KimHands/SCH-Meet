@@ -57,12 +57,9 @@ DEBUG = _env_flag('DJANGO_DEBUG')
 ADMIN_ENABLED = DEBUG or _env_flag('DJANGO_ADMIN_ENABLED')
 
 ALLOWED_HOSTS = ['localhost', '127.0.0.1', '[::1]']
-# 운영 호스트: 콤마 구분 DJANGO_ALLOWED_HOSTS + Render 자동 호스트명
+# 운영 호스트: 콤마 구분 DJANGO_ALLOWED_HOSTS
 _extra_hosts = os.environ.get('DJANGO_ALLOWED_HOSTS', '')
 ALLOWED_HOSTS += [h.strip() for h in _extra_hosts.split(',') if h.strip()]
-_render_host = os.environ.get('RENDER_EXTERNAL_HOSTNAME')
-if _render_host:
-    ALLOWED_HOSTS.append(_render_host)
 
 
 # Application definition
@@ -120,7 +117,7 @@ DATABASES = {
     }
 }
 
-# 운영: DATABASE_URL(예: Render Postgres)이 설정되면 우선 사용
+# 운영: DATABASE_URL이 설정되면 우선 사용
 _database_url = os.environ.get('DATABASE_URL')
 if _database_url:
     import dj_database_url
@@ -189,7 +186,7 @@ CSRF_TRUSTED_ORIGINS = [
     'http://127.0.0.1:5174',
 ]
 
-# 운영 프론트 도메인(예: https://sch-meet.vercel.app): 콤마 구분 FRONTEND_ORIGINS
+# 운영 프론트 도메인(예: https://sch-meet.example.com): 콤마 구분 FRONTEND_ORIGINS
 _frontend_origins = [o.strip() for o in os.environ.get('FRONTEND_ORIGINS', '').split(',') if o.strip()]
 CORS_ALLOWED_ORIGINS += _frontend_origins
 CSRF_TRUSTED_ORIGINS += _frontend_origins
@@ -205,7 +202,7 @@ FRONTEND_BASE_URL = os.environ.get('FRONTEND_BASE_URL', 'http://localhost:5173')
 
 
 # 레이트리밋용 클라이언트 IP: X-Forwarded-For 오른쪽에서 몇 번째 항목을 믿을지(0이면 REMOTE_ADDR만 사용)
-TRUSTED_PROXY_COUNT = int(os.environ.get('TRUSTED_PROXY_COUNT', '1' if _env_flag('RENDER') else '0'))
+TRUSTED_PROXY_COUNT = int(os.environ.get('TRUSTED_PROXY_COUNT', '0'))
 # 프록시가 클라이언트 값을 덮어쓰는 헤더(예: CF-Connecting-IP)가 있으면 X-Forwarded-For보다 우선한다.
 CLIENT_IP_HEADER = os.environ.get('CLIENT_IP_HEADER', '')
 
@@ -219,8 +216,8 @@ LOGGING = {
     'root': {'handlers': ['stderr']},
 }
 
-# 운영(HTTPS) 보안 설정 — Render는 RENDER=true를 자동 주입하고, 그 외 환경은 DJANGO_BEHIND_HTTPS_PROXY로 켠다.
-if _env_flag('RENDER') or _env_flag('DJANGO_BEHIND_HTTPS_PROXY'):
+# 운영(HTTPS) 보안 설정 — HTTPS 프록시 뒤에서 DJANGO_BEHIND_HTTPS_PROXY로 켠다.
+if _env_flag('DJANGO_BEHIND_HTTPS_PROXY'):
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
     SECURE_SSL_REDIRECT = True
     SECURE_REDIRECT_EXEMPT = [r'^api/health/$']  # 컨테이너 내부 HTTP 헬스체크
