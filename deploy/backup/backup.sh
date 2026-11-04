@@ -4,7 +4,13 @@ set -eu
 prefix="r2:${R2_BUCKET}/${BACKUP_PREFIX:-sch-meet/postgres}"
 name="sch-meet-$(date +%Y%m%d-%H%M%S).dump"
 tmp="/tmp/$name"
-trap 'rm -f "$tmp"' EXIT
+on_exit() {
+  status=$?
+  rm -f "$tmp"
+  [ "$status" -eq 0 ] || notify.sh "SCH-Meet DB 백업 실패 ($(date '+%F %T')). 서버 로그를 확인하세요."
+  exit "$status"
+}
+trap on_exit EXIT
 
 pg_dump -h "$PGHOST" -U "$PGUSER" -d "$PGDATABASE" -Fc --no-owner --no-privileges -f "$tmp"
 rclone copyto "$tmp" "$prefix/$name" --s3-no-check-bucket
