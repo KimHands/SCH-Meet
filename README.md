@@ -11,7 +11,7 @@
 ## 📌 프로젝트 소개
 
 팀플·스터디 모임 시간을 잡으려면 팀원마다 시간표를 물어보고 겹치는 공강을 손으로 찾아야 한다.
-SCH-Meet은 각자 에브리타임 시간표(URL 또는 캡처 이미지)와 고정 일정을 한 번 등록해 두면,
+SCH-Meet은 각자 에브리타임 시간표(URL)와 고정 일정을 한 번 등록해 두면,
 모임에 초대된 팀원 전원의 빈 시간을 모아 모일 수 있는 시간을 추천하고 확정까지 한 곳에서 처리한다.
 
 ---
@@ -19,7 +19,7 @@ SCH-Meet은 각자 에브리타임 시간표(URL 또는 캡처 이미지)와 고
 ## ✨ 주요 기능
 
 - 🔐 **Google 로그인** — 구글 계정으로 가입·로그인
-- 📅 **시간표 업로드** — 에브리타임 시간표 URL 파싱, 또는 시간표 캡처 이미지를 OCR로 인식한 뒤 미리보기에서 수정·확정
+- 📅 **시간표 등록** — 에브리타임 시간표 URL 파싱, 등록된 수업 확인·삭제, 고정 일정으로 직접 입력
 - 📌 **고정 일정** — 알바·동아리 등 수업 외 반복 일정 등록·수정·삭제
 - 👥 **모임 생성 / 초대** — 모임 길이(30분~4시간)를 정해 모임을 만들고 초대 링크로 팀원 참여
 - 🤖 **AI 추천** — 참여자 전원의 공통 빈 시간에서 모임 길이만큼 들어갈 시간을 찾고, 공강 길이·참여 인원·희망 시간대·희망 장소·이동 거리를 점수화(규칙 기반)해 후보 시간을 추천 이유와 함께 제시
@@ -38,7 +38,6 @@ SCH-Meet은 각자 에브리타임 시간표(URL 또는 캡처 이미지)와 고
 ### Backend
 - **Django 6.0** (Python 3.12)
 - django-cors-headers, PyJWT, google-auth
-- OCR.space API (시간표 이미지 인식)
 - SQLite (로컬) / PostgreSQL (배포)
 
 ### Deploy
@@ -121,7 +120,6 @@ npm run dev
 | `DJANGO_ADMIN_ENABLED` | 관리자 페이지 노출 여부(기본 비노출) |
 | `FRONTEND_ORIGINS` / `FRONTEND_BASE_URL` | CORS 허용 오리진 / 초대 링크용 프론트 주소 |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google OAuth |
-| `OCR_SPACE_API_KEY` | 시간표 이미지 인식 |
 
 ### Frontend (`frontend/.env`)
 | 키 | 설명 |
@@ -136,8 +134,8 @@ npm run dev
 ## 🔒 보안
 
 - Google 로그인은 이메일 인증된 계정만 허용하고, JWT(access 60분 / refresh 7일)로 인증한다.
-- 로그인·시간표 연동·OCR 업로드에 요청 횟수 제한을 둔다.
-- 업로드 이미지는 크기(1MB)와 파일 시그니처(PNG·JPG·WEBP)를 검사하고, 외부 XML은 defusedxml로 파싱한다.
+- 로그인·시간표 연동에 요청 횟수 제한을 둔다.
+- 외부 XML은 defusedxml로 파싱한다.
 - 운영에서는 HTTPS 리다이렉트·HSTS·보안 쿠키를 켜고, 프론트는 CSP 등 보안 헤더를 붙인다.
 - CI(GitHub Actions)에서 테스트·빌드와 함께 `pip-audit`·`npm audit`로 의존성 취약점을 검사한다.
 
@@ -149,7 +147,7 @@ npm run dev
 |---|---|---|
 | [@asohee48](https://github.com/asohee48) | Frontend | 전체 화면 UI, 온보딩·마이페이지, 백엔드 API 연동 |
 | [@Asnko](https://github.com/Asnko) | Backend | Django 초기 설정, Google 로그인, 에브리타임 시간표 파싱·고정 일정, 모임·초대, 추천 알고리즘, 대시보드·알림 |
-| [@KimHands](https://github.com/KimHands) | 프로젝트 총괄 | 시간표 이미지 OCR 업로드(백엔드·프론트), Vercel·Render 배포, 보안 설정 |
+| [@KimHands](https://github.com/KimHands) | 프로젝트 총괄 | Vercel·Render 배포, 보안 설정 |
 
 ---
 

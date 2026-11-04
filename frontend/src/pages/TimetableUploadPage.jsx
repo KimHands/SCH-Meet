@@ -1,15 +1,14 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { colors, screenStyle } from '../styles/theme';
 import AppBar from '../components/AppBar';
 import Button from '../components/Button';
 import Icon from '../components/Icon';
 import Toast from '../components/Toast';
+import RegisteredClasses from '../components/RegisteredClasses';
 import { useToast } from '../hooks/useToast';
-import { uploadTimetableUrl, uploadTimetableImage } from '../api/timetable';
-
-const MAX_IMAGE_BYTES = 1024 * 1024;
-const URL_HINT = '올바른 에브리타임 공유 URL 주소를 입력해 주세요.';
+import { useTimetableClasses } from '../hooks/useTimetableClasses';
+import { uploadTimetableUrl } from '../api/timetable';
 
 function useCloseOnEscape(onClose) {
   useEffect(() => {
@@ -99,30 +98,7 @@ export default function TimetableUploadPage() {
   const [loading, setLoading] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
   const { toast, showToast } = useToast();
-
-  const fileInputRef = useRef(null);
-  const [imageLoading, setImageLoading] = useState(false);
-
-  const handleImagePick = async (e) => {
-    const file = e.target.files?.[0];
-    e.target.value = '';            // 같은 파일 재선택 허용
-    if (!file) return;
-    if (file.size > MAX_IMAGE_BYTES) {
-      showToast('이미지는 1MB 이하만 가능합니다.');
-      return;
-    }
-    setImageLoading(true);
-    try {
-      const data = await uploadTimetableImage(file);
-      navigate('/upload-timetable/preview', {
-        state: { parsedClasses: data.parsed_classes, warnings: data.warnings },
-      });
-    } catch (err) {
-      showToast(err.message || '이미지 인식에 실패했어요.');
-    } finally {
-      setImageLoading(false);
-    }
-  };
+  const { classes, loading: classesLoading, loadError, reload, removeOne, removeAll } = useTimetableClasses();
 
   // 확인 버튼: URL 형식 체크 후 바로 API 호출
   const handleUrlCheck = async () => {
@@ -135,18 +111,23 @@ export default function TimetableUploadPage() {
       const data = await uploadTimetableUrl(url.trim());
       setUrlOk(true);
       showToast(`✓ 시간표 ${data.parsed_classes_count}개 수업이 등록되었습니다.`);
+      reload();
     } catch (e) {
-      const hasServerDetail = e.detail && e.message === e.detail;
-      setUrlError(e.status === 400 && !hasServerDetail ? URL_HINT : e.message);
+      setUrlError(e.message);
       setUrlOk(false);
     } finally {
       setLoading(false);
     }
   };
 
-  // 다음 버튼: URL 업로드 안 했어도 넘어갈 수 있음 — 안내 토스트는 다음 화면에서 표시
+  // 등록 후 수업을 모두 지웠다면 성공 표시도 거둔다
+  const showUrlSuccess = urlOk && classes.length > 0;
+
+  // 다음 버튼: 등록된 수업이 없어도 넘어갈 수 있음 — 안내 토스트는 다음 화면에서 표시
+  // 조회 중이거나 조회에 실패했다면 수업이 없다고 단정하지 않는다
   const handleNext = () => {
-    const state = urlOk ? undefined : { toast: '시간표를 등록하지 않고 넘어갑니다.' };
+    const confirmedEmpty = !classesLoading && !loadError && classes.length === 0;
+    const state = confirmedEmpty ? { toast: '시간표를 등록하지 않고 넘어갑니다.' } : undefined;
     navigate('/add-schedule', { state });
   };
 
@@ -163,57 +144,14 @@ export default function TimetableUploadPage() {
       <div style={{ flex: 1, overflowY: 'auto', padding: '8px 20px 16px' }}>
 
         <h1 style={{ marginTop: 6, fontSize: 22, fontWeight: '700', lineHeight: '30px', letterSpacing: '-0.22px', color: colors.onSurface }}>
-          에브리타임 시간표를<br />업로드해주세요
+          에브리타임 시간표를<br />등록해주세요
         </h1>
         <p style={{ marginTop: 10, fontSize: 13, lineHeight: '19px', color: colors.secondary }}>
           에브리타임 URL을 입력하면<br />자동으로 시간표가 등록됩니다.
         </p>
 
-        {/* 이미지 업로드 */}
-        <div style={{ marginTop: 18, display: 'flex', alignItems: 'center', gap: 7 }}>
-          <Icon name="image" size={18} color={colors.primary} />
-          <span style={{ fontSize: 13, fontWeight: '600', color: colors.onSurface }}>이미지 업로드</span>
-        </div>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/png,image/jpeg,image/heic"
-          onChange={handleImagePick}
-          tabIndex={-1}
-          aria-hidden="true"
-          style={{ display: 'none' }}
-        />
-        <button
-          type="button"
-          onClick={() => fileInputRef.current?.click()}
-          disabled={imageLoading}
-          style={{
-            marginTop: 10, width: '100%',
-            border: `1.5px dashed ${colors.outlineVariant}`,
-            borderRadius: 16,
-            backgroundColor: colors.surfaceContainerLow,
-            paddingTop: 22, paddingBottom: 22, paddingLeft: 16, paddingRight: 16,
-            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
-            cursor: imageLoading ? 'default' : 'pointer',
-            opacity: imageLoading ? 0.6 : 1,
-          }}
-        >
-          <Icon name="cloud_upload" size={34} color={colors.primary} />
-          <p style={{ textAlign: 'center', fontSize: 13, lineHeight: '18px', color: colors.onSurfaceVariant }}>
-            {imageLoading ? '이미지를 인식하는 중...' : '에타 시간표 캡쳐를 올려주세요'}
-          </p>
-          <span style={{ fontSize: 11, color: colors.outline }}>JPG, PNG, HEIC 파일 (최대 1MB)</span>
-        </button>
-
-        {/* 구분선 */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 16, marginBottom: 16 }}>
-          <div style={{ flex: 1, height: 1, backgroundColor: colors.surfaceContainerHighest }} />
-          <span style={{ fontSize: 12, fontWeight: '500', color: colors.outline }}>또는</span>
-          <div style={{ flex: 1, height: 1, backgroundColor: colors.surfaceContainerHighest }} />
-        </div>
-
         {/* URL 입력 */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+        <div style={{ marginTop: 18, display: 'flex', alignItems: 'center', gap: 7 }}>
           <Icon name="link" size={18} color={colors.primary} />
           <label htmlFor="everytime-url" style={{ fontSize: 13, fontWeight: '600', color: colors.onSurface }}>에브리타임 시간표 URL 복사</label>
         </div>
@@ -233,7 +171,7 @@ export default function TimetableUploadPage() {
             placeholder="URL을 붙여넣어 주세요"
             style={{
               flex: 1, height: 44,
-              border: `1px solid ${urlError ? colors.error : urlOk ? colors.primary : colors.outlineVariant}`,
+              border: `1px solid ${urlError ? colors.error : showUrlSuccess ? colors.primary : colors.outlineVariant}`,
               borderRadius: 8, backgroundColor: '#fff',
               paddingLeft: 13, paddingRight: 13,
               fontSize: 13, color: colors.onSurface,
@@ -248,8 +186,19 @@ export default function TimetableUploadPage() {
             style={{ paddingLeft: 14, paddingRight: 14 }}
           />
         </div>
-        {urlError && <p id="everytime-url-error" role="alert" style={{ marginTop: 4, fontSize: 12, color: colors.error }}>{urlError}</p>}
-        {urlOk && <p style={{ marginTop: 4, fontSize: 12, color: colors.primary }}>✓ 시간표가 등록되었습니다.</p>}
+        {urlError && (
+          <>
+            <p id="everytime-url-error" role="alert" style={{ marginTop: 4, fontSize: 12, lineHeight: '17px', color: colors.error }}>{urlError}</p>
+            <Button
+              variant="outline"
+              label="직접 입력하기"
+              onClick={() => navigate('/add-schedule')}
+              height={40} fontSize={13}
+              style={{ width: '100%', marginTop: 8 }}
+            />
+          </>
+        )}
+        {showUrlSuccess && <p style={{ marginTop: 4, fontSize: 12, color: colors.primary }}>✓ 시간표가 등록되었습니다.</p>}
 
         {/* TIP 박스 */}
         <div style={{
@@ -264,6 +213,16 @@ export default function TimetableUploadPage() {
           </div>
           <Button variant="outline" label="URL 찾는 방법" height={32} fontSize={12} style={{ paddingLeft: 14, paddingRight: 14 }} onClick={() => setShowGuide(true)} />
         </div>
+
+        <RegisteredClasses
+          classes={classes}
+          loading={classesLoading}
+          loadError={loadError}
+          onRetry={reload}
+          onRemoveOne={removeOne}
+          onRemoveAll={removeAll}
+          onError={showToast}
+        />
 
       </div>
 

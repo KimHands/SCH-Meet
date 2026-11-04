@@ -195,7 +195,7 @@ export default function FixedSchedulePage() {
           고정 일정을 추가해주세요
         </h1>
         <p style={{ marginTop: 8, fontSize: 13, lineHeight: '19px', color: colors.secondary }}>
-          알바, 동아리, 개인 일정 등<br />매주 반복되는 일정을 등록할 수 있어요.
+          수업, 알바, 동아리 등<br />매주 반복되는 일정을 직접 등록할 수 있어요.
         </p>
 
         {/* 일정 추가 카드 */}
@@ -210,7 +210,8 @@ export default function FixedSchedulePage() {
             id="schedule-title"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="예) 알바"
+            placeholder="예) 자료구조, 알바 (최대 20자)"
+            maxLength={20}
             style={smallInputStyle(false)}
           />
 

@@ -10,7 +10,6 @@ DEFAULT_RATE_LIMITS = {
     'login': (20, 60),
     'refresh': (30, 60),
     'everytime': (10, 600),
-    'ocr': (10, 600),
 }
 
 

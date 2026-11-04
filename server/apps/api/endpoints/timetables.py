@@ -6,18 +6,21 @@ import requests
 from defusedxml import DefusedXmlException
 from defusedxml import ElementTree
 from django.db import transaction
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 
 from ..models import FixedSchedule, TimetableClass
 from .common import method_not_allowed
 from .user import _get_authorized_user
-from . import ocr
 from .throttle import check_rate_limit
 
 
 EVERYTIME_HOSTS = {'everytime.kr', 'www.everytime.kr', 'm.everytime.kr'}
 DAY_CODES = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN']
+EVERYTIME_INVALID_URL = '에브리타임 시간표 공유 URL이 아니에요. URL을 다시 확인해주세요.'
+EVERYTIME_LOAD_FAILED = '에브리타임에서 시간표를 불러오지 못했어요. 잠시 후 다시 시도하거나 직접 입력해주세요.'
+EVERYTIME_UNREADABLE = '시간표를 읽지 못했어요. 에브리타임 공개 설정을 확인하거나 직접 입력해주세요.'
+EVERYTIME_EMPTY = '시간표가 비어 있거나 비공개예요. 에브리타임 공개 설정을 확인하거나 직접 입력해주세요.'
 
 
 def _extract_everytime_identifier(url):
@@ -102,6 +105,11 @@ def _read_limited_text(response):
     return body.decode(response.encoding or 'utf-8', errors='replace')
 
 
+def _fit_column(field_name, value):
+    """외부 값이 모델 길이를 넘으면 잘라 DB 오류를 막는다."""
+    return value[:TimetableClass._meta.get_field(field_name).max_length]
+
+
 def _parse_everytime_response(xml_text, source_identifier):
     if len(xml_text) > MAX_EVERYTIME_RESPONSE_BYTES:
         return None
@@ -144,14 +152,14 @@ def _parse_everytime_response(xml_text, source_identifier):
             parsed_classes.append(
                 {
                     'year': int(table.attrib['year']) if table.attrib.get('year', '').isdigit() else None,
-                    'semester': table.attrib.get('semester', ''),
-                    'name': name.attrib.get('value', '') if name is not None else '',
-                    'professor': professor.attrib.get('value', '') if professor is not None else '',
+                    'semester': _fit_column('semester', table.attrib.get('semester', '')),
+                    'name': _fit_column('name', name.attrib.get('value', '') if name is not None else ''),
+                    'professor': _fit_column('professor', professor.attrib.get('value', '') if professor is not None else ''),
                     'day': DAY_CODES[day_index],
                     'start_minute': start_minute,
                     'end_minute': end_minute,
-                    'place': data_node.attrib.get('place', '') or (place.attrib.get('value', '') if place is not None else ''),
-                    'time_label': time_node.attrib.get('value', '') if time_node is not None else '',
+                    'place': _fit_column('place', data_node.attrib.get('place', '') or (place.attrib.get('value', '') if place is not None else '')),
+                    'time_label': _fit_column('time_label', time_node.attrib.get('value', '') if time_node is not None else ''),
                     'closed': (closed.attrib.get('value', '0') == '1') if closed is not None else False,
                 }
             )
@@ -160,7 +168,7 @@ def _parse_everytime_response(xml_text, source_identifier):
     return {
         'year': table.attrib.get('year', ''),
         'semester': table.attrib.get('semester', ''),
-        'source_identifier': table.attrib.get('identifier', source_identifier),
+        'source_identifier': _fit_column('source_identifier', table.attrib.get('identifier', source_identifier)),
         'parsed_classes': parsed_classes,
         'parsed_classes_count': len(parsed_subject_ids),
     }
@@ -192,11 +200,11 @@ def timetable_upload_url(request):
 
     url = url.strip()
     if not _is_everytime_url(url):
-        return JsonResponse({'detail': 'Invalid Everytime URL'}, status=400)
+        return JsonResponse({'detail': EVERYTIME_INVALID_URL}, status=400)
 
     identifier = _extract_everytime_identifier(url)
     if not identifier:
-        return JsonResponse({'detail': 'Invalid Everytime URL'}, status=400)
+        return JsonResponse({'detail': EVERYTIME_INVALID_URL}, status=400)
 
     headers = {
         'Accept': '*/*',
@@ -221,14 +229,16 @@ def timetable_upload_url(request):
         with response:
             response_text = _read_limited_text(response) if response.status_code == 200 else None
     except requests.RequestException:
-        return JsonResponse({'detail': 'Failed to load Everytime timetable'}, status=502)
+        return JsonResponse({'detail': EVERYTIME_LOAD_FAILED}, status=502)
 
     if response_text is None:
-        return JsonResponse({'detail': 'Failed to load Everytime timetable'}, status=502)
+        return JsonResponse({'detail': EVERYTIME_LOAD_FAILED}, status=502)
 
     parsed_response = _parse_everytime_response(response_text, identifier)
     if not parsed_response:
-        return JsonResponse({'detail': 'Failed to parse Everytime timetable'}, status=502)
+        return JsonResponse({'detail': EVERYTIME_UNREADABLE}, status=502)
+    if not parsed_response['parsed_classes']:
+        return JsonResponse({'detail': EVERYTIME_EMPTY}, status=422)
 
     with transaction.atomic():
         TimetableClass.objects.filter(user=user, source='everytime').delete()
@@ -262,166 +272,62 @@ def timetable_upload_url(request):
     )
 
 
-MAX_IMAGE_BYTES = 1024 * 1024  # OCR.space 무료 한도 1MB
-MULTIPART_OVERHEAD_BYTES = 64 * 1024
-IMAGE_SIGNATURES = (
-    b'\x89PNG\r\n\x1a\n',
-    b'\xff\xd8\xff',
-)
+_DAY_ORDER = {day_code: index for index, day_code in enumerate(DAY_CODES)}
 
 
-def _is_supported_image(head_bytes):
-    if head_bytes.startswith(IMAGE_SIGNATURES):
-        return True
-    return head_bytes[:4] == b'RIFF' and head_bytes[8:12] == b'WEBP'
+def _own_classes(user):
+    """사용자가 관리하는 수업만. 확정 모임으로 생긴 항목은 모임 쪽에서 관리한다."""
+    return TimetableClass.objects.filter(user=user).exclude(source='meeting')
 
 
-def _declared_body_too_large(request):
-    try:
-        content_length = int(request.META.get('CONTENT_LENGTH') or 0)
-    except ValueError:
-        return False
-    return content_length > MAX_IMAGE_BYTES + MULTIPART_OVERHEAD_BYTES
+def _serialize_timetable_class(timetable_class):
+    return {
+        'id': timetable_class.id,
+        'name': timetable_class.name,
+        'day': timetable_class.day,
+        'start_time': _minute_to_time_label(timetable_class.start_minute),
+        'end_time': _minute_to_time_label(timetable_class.end_minute),
+        'professor': timetable_class.professor,
+        'place': timetable_class.place,
+    }
+
+
+def _class_sort_key(timetable_class):
+    return (_DAY_ORDER.get(timetable_class.day, len(DAY_CODES)), timetable_class.start_minute)
 
 
 @csrf_exempt
-def timetable_upload_image(request):
-    if request.method != 'POST':
+def timetable_classes(request):
+    if request.method not in ['GET', 'DELETE']:
         return method_not_allowed()
 
     user, error_response = _get_authorized_user(request)
     if error_response:
         return error_response
 
-    if _declared_body_too_large(request):
-        return JsonResponse({'detail': '이미지는 1MB 이하만 가능합니다'}, status=413)
+    if request.method == 'DELETE':
+        _own_classes(user).delete()
+        return HttpResponse(status=204)
 
-    upload = request.FILES.get('file')
-    if not upload or upload.size == 0:
-        return JsonResponse({'detail': '파일이 필요합니다'}, status=400)
-    if upload.size > MAX_IMAGE_BYTES:
-        return JsonResponse({'detail': '이미지는 1MB 이하만 가능합니다'}, status=413)
-
-    image_bytes = upload.read()
-    if not _is_supported_image(image_bytes[:12]):
-        return JsonResponse({'detail': 'PNG, JPG, WEBP 이미지만 올릴 수 있어요'}, status=400)
-
-    rate_limited = check_rate_limit('ocr', user.id)
-    if rate_limited:
-        return rate_limited
-
-    try:
-        words = ocr.call_ocr_space(image_bytes, upload.name)
-    except ocr.OcrNotConfigured:
-        return JsonResponse({'detail': 'OCR 기능이 설정되지 않았습니다'}, status=503)
-    except ocr.OcrServiceError:
-        return JsonResponse({'detail': 'OCR 서비스 연결에 실패했습니다'}, status=502)
-
-    parsed = ocr.parse_timetable_grid(words)
-    return JsonResponse(
-        {
-            'status': 'parsed',
-            'parsed_classes_count': len(parsed['classes']),
-            'parsed_classes': parsed['classes'],
-            'warnings': parsed['warnings'],
-        },
-        status=200,
-    )
-
-
-MAX_CONFIRM_CLASSES = 50
-_CLOCK_PATTERN = re.compile(r'^([01]?\d|2[0-3]):([0-5]\d)$')
-
-
-def _optional_text(value):
-    """문자열이면 공백을 제거해 돌려주고, 없으면 '', 다른 타입이면 None."""
-    if value is None:
-        return ''
-    if not isinstance(value, str):
-        return None
-    return value.strip()
-
-
-def _clock_to_minute(value):
-    if not isinstance(value, str):
-        return None
-    match = _CLOCK_PATTERN.match(value.strip())
-    if not match:
-        return None
-    return int(match.group(1)) * 60 + int(match.group(2))
+    classes = sorted(_own_classes(user), key=_class_sort_key)
+    return JsonResponse([_serialize_timetable_class(c) for c in classes], safe=False)
 
 
 @csrf_exempt
-def timetable_image_confirm(request):
-    if request.method != 'POST':
+def timetable_class_detail(request, class_id):
+    if request.method != 'DELETE':
         return method_not_allowed()
 
     user, error_response = _get_authorized_user(request)
     if error_response:
         return error_response
 
-    try:
-        body = json.loads(request.body.decode() or '{}')
-    except Exception:
-        return JsonResponse({'detail': 'Invalid JSON body'}, status=400)
+    timetable_class = _own_classes(user).filter(id=class_id).first()
+    if not timetable_class:
+        return JsonResponse({'detail': 'Not found'}, status=404)
 
-    raw_classes = body.get('classes')
-    if not isinstance(raw_classes, list):
-        return JsonResponse({'detail': 'classes must be a list'}, status=400)
-    if len(raw_classes) > MAX_CONFIRM_CLASSES:
-        return JsonResponse({'detail': f'최대 {MAX_CONFIRM_CLASSES}개까지 저장할 수 있습니다'}, status=400)
-
-    validated = []
-    for index, item in enumerate(raw_classes):
-        if not isinstance(item, dict):
-            return JsonResponse({'detail': f'{index}번째 항목 형식이 올바르지 않습니다'}, status=400)
-
-        name = _optional_text(item.get('name'))
-        place = _optional_text(item.get('place'))
-        professor = _optional_text(item.get('professor'))
-        if name is None or place is None or professor is None:
-            return JsonResponse({'detail': f'{index}번째 항목 형식이 올바르지 않습니다'}, status=400)
-        if not name:
-            return JsonResponse({'detail': f'{index}번째 과목명이 비어 있습니다'}, status=400)
-
-        day = item.get('day')
-        if day not in ocr.DAY_CODES:
-            return JsonResponse({'detail': f'{index}번째 요일이 올바르지 않습니다'}, status=400)
-
-        start_minute = _clock_to_minute(item.get('start_time'))
-        end_minute = _clock_to_minute(item.get('end_time'))
-        if start_minute is None or end_minute is None:
-            return JsonResponse({'detail': f'{index}번째 시간 형식이 올바르지 않습니다'}, status=400)
-        if end_minute <= start_minute:
-            return JsonResponse({'detail': f'{index}번째 종료 시간이 시작보다 빠릅니다'}, status=400)
-
-        validated.append({
-            'name': name[:200],
-            'day': day,
-            'start_minute': start_minute,
-            'end_minute': end_minute,
-            'place': place[:100],
-            'professor': professor[:200],
-        })
-
-    with transaction.atomic():
-        TimetableClass.objects.filter(user=user, source='image').delete()
-        TimetableClass.objects.bulk_create([
-            TimetableClass(
-                user=user,
-                source='image',
-                name=entry['name'],
-                day=entry['day'],
-                start_minute=entry['start_minute'],
-                end_minute=entry['end_minute'],
-                place=entry['place'],
-                professor=entry['professor'],
-                time_label='이미지 인식',
-            )
-            for entry in validated
-        ])
-
-    return JsonResponse({'status': 'success', 'parsed_classes_count': len(validated)}, status=200)
+    timetable_class.delete()
+    return HttpResponse(status=204)
 
 
 def consolidated_timetables(request):

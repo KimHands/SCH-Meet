@@ -203,9 +203,6 @@ GOOGLE_CLIENT_SECRET = os.environ.get('GOOGLE_CLIENT_SECRET')
 # Frontend base URL for invite links (can be set via environment)
 FRONTEND_BASE_URL = os.environ.get('FRONTEND_BASE_URL', 'http://localhost:5173')
 
-# OCR.space API key for timetable image recognition
-OCR_SPACE_API_KEY = os.environ.get('OCR_SPACE_API_KEY', '')
-
 
 # 레이트리밋용 클라이언트 IP: X-Forwarded-For 오른쪽에서 몇 번째 항목을 믿을지(0이면 REMOTE_ADDR만 사용)
 TRUSTED_PROXY_COUNT = int(os.environ.get('TRUSTED_PROXY_COUNT', '1' if _env_flag('RENDER') else '0'))
