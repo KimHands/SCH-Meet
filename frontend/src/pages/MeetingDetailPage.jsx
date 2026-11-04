@@ -60,7 +60,7 @@ function MemberRow({ member, isMe, borderBottom }) {
       <span style={{ flex: 1, fontSize: 13, fontWeight: '500', color: colors.onSurface }}>
         {member.nickname}{isMe ? ' (나)' : ''}
       </span>
-      {!member.has_schedule && (
+      {member.has_schedule === false && (
         <span style={{ fontSize: 11, fontWeight: '500', color: colors.onErrorContainer, backgroundColor: colors.errorContainer, padding: '3px 8px', borderRadius: 99 }}>
           시간표 미등록
         </span>
@@ -117,13 +117,16 @@ export default function MeetingDetailPage() {
     setCancelling(true);
     try {
       await cancelMeetingConfirmation(id);
-      setMeeting(await getMeeting(id));
-      showToast('확정을 취소했어요.');
     } catch (e) {
       showToast(e.message || '확정을 취소하지 못했어요.');
-    } finally {
       setCancelling(false);
+      return;
     }
+    // 취소는 끝났으므로 재조회가 실패해도 취소 실패로 안내하지 않는다
+    setMeeting((prev) => ({ ...prev, status: 'OPEN', confirmed_time: null, confirmed_location: '' }));
+    showToast('확정을 취소했어요.');
+    setCancelling(false);
+    getMeeting(id).then(setMeeting).catch(() => {});
   };
 
   const handleRemove = async () => {

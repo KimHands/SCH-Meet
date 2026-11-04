@@ -61,6 +61,8 @@ def _parse_schedule_fields(request):
         body = json.loads(request.body.decode() or '{}')
     except Exception:
         return None, JsonResponse({'detail': 'Invalid JSON body'}, status=400)
+    if not isinstance(body, dict):
+        return None, JsonResponse({'detail': 'Invalid JSON body'}, status=400)
 
     title = body.get('title')
     if not isinstance(title, str) or not title.strip():
