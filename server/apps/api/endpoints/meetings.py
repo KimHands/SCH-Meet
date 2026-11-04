@@ -776,12 +776,37 @@ def meeting_detail(request, meeting_id):
 
     with transaction.atomic():
         if membership.role != 'CREATOR':
-            _remove_confirmed_rows(meeting, user=user)
-            membership.delete()
+            _leave_meeting(meeting, membership, user)
         else:
-            _remove_confirmed_rows(meeting)
-            meeting.delete()
+            _delete_meeting(meeting)
     return HttpResponse(status=204)
+
+
+def _leave_meeting(meeting, membership, user):
+    _remove_confirmed_rows(meeting, user=user)
+    membership.delete()
+    _create_notification(
+        user=meeting.creator,
+        kind='SYSTEM',
+        title='참여자가 모임을 나갔습니다',
+        body=f'{_get_profile_display_name(user)}님이 "{meeting.name}" 모임을 나갔습니다.',
+        related_meeting=meeting,
+    )
+
+
+def _delete_meeting(meeting):
+    other_members = [member.user for member in meeting.members.exclude(user=meeting.creator).select_related('user')]
+    meeting_name = meeting.name
+    _remove_confirmed_rows(meeting)
+    meeting.delete()
+    # 알림은 모임과 함께 지워지지 않도록 모임에 연결하지 않는다
+    for member_user in other_members:
+        _create_notification(
+            user=member_user,
+            kind='SYSTEM',
+            title='모임이 삭제되었습니다',
+            body=f'"{meeting_name}" 모임을 모임장이 삭제했습니다.',
+        )
 
 
 def _update_meeting(request, meeting, membership):

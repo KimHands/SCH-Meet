@@ -78,6 +78,7 @@ export default function App() {
           {/* 모임 */}
           <Route path="/meetings/new" element={<CreateMeetingPage />} />
           <Route path="/meetings/:id" element={<MeetingDetailPage />} />
+          <Route path="/meetings/:id/edit" element={<CreateMeetingPage />} />
 
           {/* AI 추천 / 확정 */}
           <Route path="/meetings/:id/ai-result" element={<AiResultPage />} />
