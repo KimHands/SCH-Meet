@@ -7,6 +7,14 @@ import Button from '../components/Button';
 import Icon from '../components/Icon';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { getMeetings } from '../api/meetings';
+import { formatConfirmedTime, meetingStatusLabel } from '../utils/meetingTime';
+
+const meetingChipText = (meeting) => {
+  if (meeting.status !== 'OPEN') {
+    return `${meetingStatusLabel(meeting.status)} · ${formatConfirmedTime(meeting.confirmed_time)}`;
+  }
+  return meeting.desired_time ? `희망 · ${meeting.desired_time}` : '일정 조율 중';
+};
 
 const AV = [
   { bg: colors.primaryFixedDim,   fg: colors.primary },
@@ -158,13 +166,13 @@ export default function MeetingListPage() {
 
                     {/* 상태 칩 */}
                     <div style={{
-                      backgroundColor: m.status === 'ended' ? colors.surfaceContainerLow : colors.primaryFixed,
+                      backgroundColor: m.status === 'CLOSED' ? colors.surfaceContainerLow : colors.primaryFixed,
                       paddingTop: 5, paddingBottom: 5,
                       paddingLeft: 10, paddingRight: 10,
                       borderRadius: 99,
                     }}>
-                      <span style={{ fontSize: 11, fontWeight: '500', color: m.status === 'ended' ? colors.outline : colors.primary }}>
-                        {m.status === 'ended' ? '종료됨' : (m.desired_time ? `희망 · ${m.desired_time}` : '일정 조율 중')}
+                      <span style={{ fontSize: 11, fontWeight: '500', color: m.status === 'CLOSED' ? colors.outline : colors.primary }}>
+                        {meetingChipText(m)}
                       </span>
                     </div>
                   </div>

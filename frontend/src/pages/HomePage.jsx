@@ -9,6 +9,7 @@ import { getDashboardSummary } from '../api/dashboard';
 import { getMeetings } from '../api/meetings';
 import { getMyProfile } from '../api/auth';
 import { getConsolidatedTimetable } from '../api/timetable';
+import { formatConfirmedTime } from '../utils/meetingTime';
 
 const DAYS = ['월', '화', '수', '목', '금', '토', '일'];
 const DAY_CODES = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
@@ -172,7 +173,9 @@ function MeetingCard({ meeting, onOpen }) {
         <div style={{ flex: 1 }}>
           <span style={{ display: 'block', fontSize: 14, fontWeight: '600', color: colors.onSurface }}>{meeting.name ?? meeting.title}</span>
           <span style={{ display: 'block', fontSize: 11, color: colors.outline, marginTop: 2 }}>
-            {meeting.participant_count}명 · {meeting.purpose || '모임'}
+            {meeting.status === 'CONFIRMED'
+              ? `확정 · ${formatConfirmedTime(meeting.confirmed_time)}`
+              : `${meeting.participant_count}명 · ${meeting.purpose || '모임'}`}
           </span>
         </div>
         <Icon name="chevron_right" size={20} color={colors.outline} />

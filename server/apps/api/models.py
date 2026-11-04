@@ -61,6 +61,7 @@ class Meeting(models.Model):
     creator = models.ForeignKey(User, on_delete=models.CASCADE, related_name='created_meetings')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='OPEN')
     confirmed_recommendation_id = models.PositiveIntegerField(null=True, blank=True)
+    confirmed_date = models.DateField(null=True, blank=True)
     confirmed_day = models.CharField(max_length=3, blank=True, default='')
     confirmed_start_minute = models.PositiveIntegerField(null=True, blank=True)
     confirmed_end_minute = models.PositiveIntegerField(null=True, blank=True)

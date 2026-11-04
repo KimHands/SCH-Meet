@@ -81,6 +81,10 @@ export async function confirmMeeting(meetingId, { recommendationId, day, startTi
 
 // 확정된 모임 정보 조회
 // GET /api/meetings/{id}/confirmed/
+export async function cancelMeetingConfirmation(meetingId) {
+  return apiClient(`/api/meetings/${meetingId}/confirm/`, { method: 'DELETE' });
+}
+
 export async function getConfirmedMeeting(meetingId) {
   return apiClient(`/api/meetings/${meetingId}/confirmed/`);
   // 응답: { meeting_id, meeting_name, confirmed_time, confirmed_location, confirmed_members }

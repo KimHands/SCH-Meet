@@ -49,6 +49,55 @@ def _get_profile_display_name(user):
     return user.username or f'user-{user.id}'
 
 
+def _next_occurrence(day_code, start_minute):
+    """그 요일·시각이 다음에 오는 날짜. 오늘 이미 지난 시각이면 다음 주로 넘긴다."""
+    now = timezone.localtime(timezone.now())
+    days_ahead = (DAY_INDEX[day_code] - now.weekday()) % 7
+    if days_ahead == 0 and start_minute <= now.hour * 60 + now.minute:
+        days_ahead = 7
+    return now.date() + datetime.timedelta(days=days_ahead)
+
+
+def _date_label(date_value):
+    weekday_label = DAY_CODE_LABELS[DAY_CODES[date_value.weekday()]]
+    return f'{date_value.month}월 {date_value.day}일({weekday_label})'
+
+
+def _serialize_confirmed_time(meeting):
+    if meeting.confirmed_start_minute is None or meeting.confirmed_end_minute is None:
+        return None
+    return {
+        'date': meeting.confirmed_date.isoformat() if meeting.confirmed_date else None,
+        'day': meeting.confirmed_day,
+        'start_time': _minute_to_clock_label(meeting.confirmed_start_minute),
+        'end_time': _minute_to_clock_label(meeting.confirmed_end_minute),
+    }
+
+
+def _has_finished(meeting, now):
+    if meeting.confirmed_date < now.date():
+        return True
+    return meeting.confirmed_date == now.date() and meeting.confirmed_end_minute <= now.hour * 60 + now.minute
+
+
+def close_finished_meetings(user_ids):
+    """끝난 모임을 종료로 옮기고 시간표에서 뺀다. 스케줄러가 없어 조회할 때 처리한다."""
+    now = timezone.localtime(timezone.now())
+    candidates = Meeting.objects.filter(
+        status='CONFIRMED',
+        members__user_id__in=user_ids,
+        confirmed_date__isnull=False,
+        confirmed_date__lte=now.date(),
+        confirmed_end_minute__isnull=False,
+    ).distinct()
+    for meeting in candidates:
+        if not _has_finished(meeting, now):
+            continue
+        with transaction.atomic():
+            Meeting.objects.filter(id=meeting.id, status='CONFIRMED').update(status='CLOSED')
+            _remove_confirmed_rows(meeting)
+
+
 def _user_ids_with_schedule(user_ids):
     """시간표나 고정 일정을 등록한 사용자. 확정 모임으로 생긴 항목은 등록으로 치지 않는다."""
     with_classes = TimetableClass.objects.filter(user_id__in=user_ids).exclude(source='meeting')
@@ -94,6 +143,7 @@ def _serialize_meeting_summary(meeting, user_member, participant_count):
         'max_members': meeting.capacity,
         'duration_minutes': meeting.duration_minutes,
         'status': meeting.status,
+        'confirmed_time': _serialize_confirmed_time(meeting),
         'is_creator': user_member.role == 'CREATOR',
         'role': user_member.role,
         'participant_count': participant_count,
@@ -135,6 +185,8 @@ def _serialize_meeting_detail(meeting, membership, request):
         'max_members': meeting.capacity,
         'duration_minutes': meeting.duration_minutes,
         'status': meeting.status,
+        'confirmed_time': _serialize_confirmed_time(meeting),
+        'confirmed_location': meeting.confirmed_location,
         'my_role': membership.role,
         'invite_link': _active_invite_link(meeting, request),
         'creator_name': _get_profile_display_name(meeting.creator),
@@ -221,7 +273,9 @@ def _collect_busy_intervals(user_ids):
 
 
 def _compute_common_free_slots(members):
-    daily_busy = _collect_busy_intervals([member.user_id for member in members])
+    member_user_ids = [member.user_id for member in members]
+    close_finished_meetings(member_user_ids)
+    daily_busy = _collect_busy_intervals(member_user_ids)
     common_free_slots = {day_code: [] for day_code in DAY_CODES}
 
     for day_code in DAY_CODES:
@@ -402,6 +456,7 @@ def _build_recommendation_candidates(meeting, members, common_free_slots=None):
             'recommendation_id': index,
             'rank': index,
             'day': candidate['day'],
+            'date': _next_occurrence(candidate['day'], candidate['start_minute']).isoformat(),
             'day_label': DAY_CODE_LABELS[candidate['day']],
             'start_time': _minute_to_clock_label(candidate['start_minute']),
             'end_time': _minute_to_clock_label(candidate['start_minute'] + duration),
@@ -413,15 +468,6 @@ def _build_recommendation_candidates(meeting, members, common_free_slots=None):
 
 
 def _serialize_confirmed_meeting(meeting):
-    if meeting.confirmed_start_minute is None or meeting.confirmed_end_minute is None:
-        confirmed_time = None
-    else:
-        confirmed_time = {
-            'day': meeting.confirmed_day,
-            'start_time': _minute_to_clock_label(meeting.confirmed_start_minute),
-            'end_time': _minute_to_clock_label(meeting.confirmed_end_minute),
-        }
-
     confirmed_members = []
     for member in meeting.members.select_related('user', 'user__profile').all():
         profile = getattr(member.user, 'profile', None)
@@ -438,7 +484,7 @@ def _serialize_confirmed_meeting(meeting):
         'meeting_id': meeting.id,
         'meeting_name': meeting.name,
         'status': meeting.status,
-        'confirmed_time': confirmed_time,
+        'confirmed_time': _serialize_confirmed_time(meeting),
         'confirmed_location': meeting.confirmed_location,
         'confirmed_members': confirmed_members,
         'confirmed_recommendation_id': meeting.confirmed_recommendation_id,
@@ -657,6 +703,7 @@ def meetings_collection(request):
 
 
 def _list_meetings(request, user):
+    close_finished_meetings([user.id])
     status_filter = request.GET.get('status', 'active').strip().lower()
     if status_filter not in ['active', 'ended']:
         return JsonResponse({'detail': 'Invalid status filter'}, status=400)
@@ -714,6 +761,7 @@ def meeting_detail(request, meeting_id):
     if error_response:
         return error_response
 
+    close_finished_meetings([user.id])
     payload, permission_error = _get_meeting_for_user_or_403(user, meeting_id)
     if permission_error:
         return permission_error
@@ -922,20 +970,24 @@ def meeting_recommendations(request, meeting_id):
 
 @csrf_exempt
 def meeting_confirm(request, meeting_id):
-    if request.method != 'POST':
+    if request.method not in ['POST', 'DELETE']:
         return method_not_allowed()
 
     user, error_response = _get_authorized_user(request)
     if error_response:
         return error_response
 
+    close_finished_meetings([user.id])
     payload, permission_error = _get_meeting_for_user_or_403(user, meeting_id)
     if permission_error:
         return permission_error
 
     meeting, membership = payload
     if membership.role != 'CREATOR':
-        return JsonResponse({'detail': '모임장만 일정을 확정할 수 있어요.'}, status=403)
+        return JsonResponse({'detail': '모임장만 일정을 확정하거나 취소할 수 있어요.'}, status=403)
+
+    if request.method == 'DELETE':
+        return _cancel_confirmation(meeting)
 
     body, error_response = _parse_json_body(request)
     if error_response:
@@ -965,6 +1017,35 @@ def meeting_confirm(request, meeting_id):
     return JsonResponse(_serialize_confirmed_meeting(meeting), status=200)
 
 
+def _cancel_confirmation(meeting):
+    with transaction.atomic():
+        meeting = Meeting.objects.select_for_update().get(id=meeting.id)
+        if meeting.status != 'CONFIRMED':
+            return JsonResponse({'detail': '확정된 모임만 취소할 수 있어요.'}, status=409)
+
+        meeting.status = 'OPEN'
+        meeting.confirmed_recommendation_id = None
+        meeting.confirmed_date = None
+        meeting.confirmed_day = ''
+        meeting.confirmed_start_minute = None
+        meeting.confirmed_end_minute = None
+        meeting.confirmed_location = ''
+        meeting.confirmed_at = None
+        meeting.save()
+        _remove_confirmed_rows(meeting)
+
+        for member in meeting.members.exclude(user=meeting.creator).select_related('user'):
+            _create_notification(
+                user=member.user,
+                kind='MEETING_CONFIRMED',
+                title='모임 일정 확정이 취소되었습니다',
+                body=f'"{meeting.name}" 모임의 시간을 다시 정하고 있어요.',
+                related_meeting=meeting,
+            )
+
+    return JsonResponse({'meeting_id': meeting.id, 'status': meeting.status}, status=200)
+
+
 def _parse_confirm_selection(body):
     day = body.get('day')
     start_minute = _parse_clock_to_minute(body.get('start_time'))
@@ -990,6 +1071,7 @@ def _resolve_confirm_slot(meeting, members, selection):
 def _apply_confirmation(meeting, confirmed_slot):
     meeting.status = 'CONFIRMED'
     meeting.confirmed_recommendation_id = confirmed_slot.get('recommendation_id')
+    meeting.confirmed_date = _next_occurrence(confirmed_slot['day'], confirmed_slot['start_minute'])
     meeting.confirmed_day = confirmed_slot['day']
     meeting.confirmed_start_minute = confirmed_slot['start_minute']
     meeting.confirmed_end_minute = confirmed_slot['end_minute']
@@ -999,14 +1081,14 @@ def _apply_confirmation(meeting, confirmed_slot):
 
     _sync_confirmed_meeting_to_timetables(meeting)
 
-    day_label = DAY_CODE_LABELS[meeting.confirmed_day]
+    date_label = _date_label(meeting.confirmed_date)
     start_label = _minute_to_clock_label(meeting.confirmed_start_minute)
     for member in meeting.members.select_related('user').all():
         _create_notification(
             user=member.user,
             kind='MEETING_CONFIRMED',
             title='모임 일정이 확정되었습니다',
-            body=f'"{meeting.name}" 모임이 {day_label} {start_label}에 확정되었습니다.',
+            body=f'"{meeting.name}" 모임이 {date_label} {start_label}에 확정되었습니다.',
             related_meeting=meeting,
         )
 
@@ -1020,12 +1102,13 @@ def meeting_confirmed(request, meeting_id):
     if error_response:
         return error_response
 
+    close_finished_meetings([user.id])
     payload, permission_error = _get_meeting_for_user_or_403(user, meeting_id)
     if permission_error:
         return permission_error
 
     meeting, _membership = payload
-    if meeting.status != 'CONFIRMED':
-        return JsonResponse({'detail': 'Meeting is not confirmed yet'}, status=404)
+    if meeting.status not in ['CONFIRMED', 'CLOSED']:
+        return JsonResponse({'detail': '아직 일정이 확정되지 않았어요.'}, status=404)
 
     return JsonResponse(_serialize_confirmed_meeting(meeting), status=200)

@@ -7,9 +7,10 @@ import Icon from '../components/Icon';
 import LoadingSpinner from '../components/LoadingSpinner';
 import Toast from '../components/Toast';
 import { useToast } from '../hooks/useToast';
-import { getMeeting } from '../api/meetings';
+import { cancelMeetingConfirmation, getMeeting } from '../api/meetings';
 import { getMyProfile } from '../api/auth';
 import { formatDuration } from '../utils/duration';
+import { formatConfirmedTime, meetingStatusLabel } from '../utils/meetingTime';
 
 const cardStyle = {
   marginTop: 8, backgroundColor: '#fff',
@@ -77,6 +78,7 @@ export default function MeetingDetailPage() {
   const [myUserId, setMyUserId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [cancelling, setCancelling] = useState(false);
   const { toast, showToast } = useToast();
 
   useEffect(() => {
@@ -95,7 +97,10 @@ export default function MeetingDetailPage() {
   const members  = meeting.members ?? [];
   const capacity = meeting.capacity ?? meeting.max_members ?? '?';
   const count    = meeting.participant_count ?? members.length;
-  const inviteLink = meeting.invite_link;
+  const isOpen = meeting.status === 'OPEN';
+  const isCreator = meeting.my_role === 'CREATOR';
+  const hasConfirmedTime = !isOpen && !!meeting.confirmed_time;
+  const inviteLink = isOpen && count < capacity ? meeting.invite_link : null;
 
   const handleCopyInvite = async () => {
     try {
@@ -103,6 +108,20 @@ export default function MeetingDetailPage() {
       showToast('초대 링크가 복사됐어요!');
     } catch {
       showToast('복사하지 못했어요. 아래 링크를 길게 눌러 복사해주세요.');
+    }
+  };
+
+  const handleCancelConfirmation = async () => {
+    if (!window.confirm('일정 확정을 취소할까요?\n참여자 모두에게 알림이 가고, 시간을 다시 정할 수 있어요.')) return;
+    setCancelling(true);
+    try {
+      await cancelMeetingConfirmation(id);
+      setMeeting(await getMeeting(id));
+      showToast('확정을 취소했어요.');
+    } catch (e) {
+      showToast(e.message || '확정을 취소하지 못했어요.');
+    } finally {
+      setCancelling(false);
     }
   };
 
@@ -124,11 +143,19 @@ export default function MeetingDetailPage() {
 
         {/* 히어로 카드 */}
         <section style={{ backgroundColor: colors.primary, borderRadius: 16, padding: 18 }}>
+          <span style={{ display: 'inline-block', marginBottom: 8, fontSize: 11, fontWeight: '600', color: colors.primary, backgroundColor: colors.primaryFixed, padding: '3px 9px', borderRadius: 99 }}>
+            {meetingStatusLabel(meeting.status)}
+          </span>
           <h2 style={{ fontSize: 19, fontWeight: '700', color: '#fff' }}>{meeting.name ?? meeting.title}</h2>
           <p style={{ marginTop: 4, fontSize: 12, color: colors.inversePrimary }}>
             {count}명 / {meeting.purpose || '모임'}
-            {meeting.my_role === 'CREATOR' ? ' · 내가 만든 모임' : ''}
+            {isCreator ? ' · 내가 만든 모임' : ''}
           </p>
+          {hasConfirmedTime && (
+            <p style={{ marginTop: 12, fontSize: 17, fontWeight: '700', color: '#fff' }}>
+              {formatConfirmedTime(meeting.confirmed_time)}
+            </p>
+          )}
         </section>
 
         {/* 모임 정보 */}
@@ -163,15 +190,28 @@ export default function MeetingDetailPage() {
         </ul>
 
         {/* 버튼 */}
-        <Button
-          variant="secondary"
-          height={48} fontSize={14}
-          style={{ width: '100%', marginTop: 16 }}
-          onClick={() => navigate(`/meetings/${id}/ai-result`)}
-        >
-          <Icon name="auto_awesome" size={19} color={colors.primary} />
-          <span style={{ fontSize: 14, fontWeight: '600', color: colors.primary }}>AI 추천 결과 보기</span>
-        </Button>
+        {isOpen && (
+          <Button
+            variant="secondary"
+            height={48} fontSize={14}
+            style={{ width: '100%', marginTop: 16 }}
+            onClick={() => navigate(`/meetings/${id}/ai-result`)}
+          >
+            <Icon name="auto_awesome" size={19} color={colors.primary} />
+            <span style={{ fontSize: 14, fontWeight: '600', color: colors.primary }}>AI 추천 결과 보기</span>
+          </Button>
+        )}
+
+        {meeting.status === 'CONFIRMED' && isCreator && (
+          <Button
+            variant="outline"
+            label={cancelling ? '취소 중...' : '확정 취소'}
+            onClick={handleCancelConfirmation}
+            disabled={cancelling}
+            height={48} fontSize={14}
+            style={{ width: '100%', marginTop: 16 }}
+          />
+        )}
 
         {inviteLink && (
           <>
