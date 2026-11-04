@@ -146,7 +146,7 @@ export default function AiResultPage() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <Icon name="auto_awesome" size={20} color={colors.tertiaryContainer} />
           <span style={{ fontSize: 13, color: colors.secondary }}>
-            AI가 {data.participant_count}명의 일정을 분석했어요
+            {data.participant_count}명의 일정을 비교했어요
           </span>
         </div>
 

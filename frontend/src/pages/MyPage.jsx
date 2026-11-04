@@ -39,7 +39,7 @@ function MenuRow({ icon, label, color = colors.onSurface, iconColor = colors.pri
 const INFO_ITEMS = [
   { icon: 'calendar_view_week', label: '시간표 관리',   path: '/upload-timetable' },
   { icon: 'event_repeat',       label: '고정 일정 관리', path: '/add-schedule' },
-  { icon: 'notifications',      label: '알림 설정',     path: '/notifications' },
+  { icon: 'notifications',      label: '알림',         path: '/notifications' },
 ];
 
 export default function MyPage() {

@@ -60,7 +60,7 @@ function SummaryCards({ summary }) {
   const cards = [
     { icon: 'school',       fg: colors.primary,           n: count(summary?.remaining_classes),            label: '남은 수업' },
     { icon: 'assignment',   fg: colors.primary,           n: count(summary?.today_tasks),                  label: '오늘 일정' },
-    { icon: 'groups',       fg: colors.primary,           n: count(summary?.pending_requests),             label: '대기 중' },
+    { icon: 'groups',       fg: colors.primary,           n: count(summary?.pending_requests),             label: '새 참여자' },
     { icon: 'auto_awesome', fg: colors.tertiaryContainer, n: count(summary?.weekly_recommendations_count), label: '이번 주 추천' },
   ];
   return (

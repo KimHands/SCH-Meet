@@ -34,6 +34,19 @@ def notifications_collection(request):
 
 
 @csrf_exempt
+def notifications_read_all(request):
+    if request.method != 'POST':
+        return method_not_allowed()
+
+    user, error_response = _get_authorized_user(request)
+    if error_response:
+        return error_response
+
+    updated = Notification.objects.filter(user=user, is_read=False).update(is_read=True)
+    return JsonResponse({'updated': updated}, status=200)
+
+
+@csrf_exempt
 def notification_read(request, notification_id):
     if request.method != 'POST':
         return method_not_allowed()

@@ -214,7 +214,7 @@ export default function MeetingDetailPage() {
             onClick={() => navigate(`/meetings/${id}/ai-result`)}
           >
             <Icon name="auto_awesome" size={19} color={colors.primary} />
-            <span style={{ fontSize: 14, fontWeight: '600', color: colors.primary }}>AI 추천 결과 보기</span>
+            <span style={{ fontSize: 14, fontWeight: '600', color: colors.primary }}>추천 시간 보기</span>
           </Button>
         )}
 

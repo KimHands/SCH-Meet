@@ -740,13 +740,6 @@ def _create_meeting(request, user):
         meeting = Meeting.objects.create(creator=user, **fields)
         MeetingMember.objects.create(meeting=meeting, user=user, role='CREATOR')
         token = _create_invite_token(meeting)
-        _create_notification(
-            user=user,
-            kind='MEETING_CREATED',
-            title='모임이 생성되었습니다',
-            body=f'"{meeting.name}" 모임 초대 링크가 생성되었습니다.',
-            related_meeting=meeting,
-        )
 
     invite_link = _build_invite_link(token, request)
     return JsonResponse({'meeting_id': meeting.id, 'invite_link': invite_link, 'token': token}, status=201)
@@ -926,8 +919,8 @@ def meeting_invite_join(request, token):
         _create_notification(
             user=meeting.creator,
             kind='MEETING_JOINED',
-            title='새 참여 요청이 도착했습니다',
-            body=f'"{meeting.name}" 모임에 새로운 참여자가 합류했습니다.',
+            title='새 참여자가 합류했습니다',
+            body=f'{_get_profile_display_name(user)}님이 "{meeting.name}" 모임에 참여했습니다.',
             related_meeting=meeting,
         )
 

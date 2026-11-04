@@ -5,7 +5,7 @@ import ErrorBanner from '../components/ErrorBanner';
 import BottomNav from '../components/BottomNav';
 import Icon from '../components/Icon';
 import LoadingSpinner from '../components/LoadingSpinner';
-import { getNotifications, readNotification } from '../api/notifications';
+import { getNotifications, readAllNotifications, readNotification } from '../api/notifications';
 
 const KIND_ICON = {
   MEETING_JOINED:    { icon: 'group_add',       bg: colors.primaryFixed,  fg: colors.primary },
@@ -54,6 +54,15 @@ export default function NotificationsPage() {
     if (n.meeting_id) navigate(`/meetings/${n.meeting_id}`);
   };
 
+  const handleReadAll = async () => {
+    try {
+      await readAllNotifications();
+      setNotifications((prev) => prev.map((item) => ({ ...item, is_read: true })));
+    } catch (e) {
+      setLoadError(e.message || '읽음 처리에 실패했어요.');
+    }
+  };
+
   const unreadCount = notifications.filter((n) => !n.is_read).length;
 
   return (
@@ -64,15 +73,13 @@ export default function NotificationsPage() {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <h1 style={{ marginTop: 4, fontSize: 22, fontWeight: '700', color: colors.onSurface }}>알림</h1>
           {unreadCount > 0 && (
-            <span style={{
-              backgroundColor: colors.primary, color: '#fff',
-              fontSize: 11, fontWeight: '600',
-              paddingTop: 3, paddingBottom: 3,
-              paddingLeft: 9, paddingRight: 9,
-              borderRadius: 99,
-            }}>
-              {unreadCount}개 읽지 않음
-            </span>
+            <button
+              type="button"
+              onClick={handleReadAll}
+              style={{ minHeight: 44, paddingLeft: 8, fontSize: 13, fontWeight: '600', color: colors.primary }}
+            >
+              모두 읽음 ({unreadCount})
+            </button>
           )}
         </div>
 
