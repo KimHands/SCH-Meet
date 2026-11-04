@@ -1,0 +1,11 @@
+.git
+.superpowers
+docs
+**/node_modules
+**/dist
+**/.env*
+**/*.sqlite3
+**/venv
+**/.venv
+**/__pycache__
+**/staticfiles

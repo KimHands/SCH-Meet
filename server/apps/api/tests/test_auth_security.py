@@ -3,10 +3,9 @@ from unittest import mock
 
 from django.contrib.auth.models import User
 from django.core.cache import cache
-from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, TestCase, override_settings
 
-from api.endpoints import auth, ocr
+from api.endpoints import auth
 from api.endpoints.throttle import client_ip
 from api.endpoints.timetables import _parse_everytime_response
 from api.models import TimetableClass
@@ -97,41 +96,6 @@ class EverytimeXmlTest(TestCase):
         self.assertIsNone(_parse_everytime_response(payload, 'id'))
 
 
-class ImageUploadSecurityTest(TestCase):
-    def setUp(self):
-        cache.clear()
-        self.user = make_user('kim')
-        self._orig_call = ocr.call_ocr_space
-        ocr.call_ocr_space = lambda *args, **kwargs: []
-
-    def tearDown(self):
-        ocr.call_ocr_space = self._orig_call
-
-    def upload(self, content, name='t.png', content_type='image/png'):
-        file = SimpleUploadedFile(name, content, content_type=content_type)
-        return self.client.post('/api/timetables/upload-image/', {'file': file}, **auth_header(self.user))
-
-    def test_non_image_content_is_rejected(self):
-        self.assertEqual(self.upload(b'<?php echo 1; ?>').status_code, 400)
-
-    def test_png_signature_is_accepted(self):
-        self.assertEqual(self.upload(b'\x89PNG\r\n\x1a\n' + b'0' * 10).status_code, 200)
-
-    @override_settings(RATE_LIMITS={'ocr': (1, 60)})
-    def test_ocr_is_rate_limited(self):
-        self.upload(b'\x89PNG\r\n\x1a\n' + b'0' * 10)
-        self.assertEqual(self.upload(b'\x89PNG\r\n\x1a\n' + b'0' * 10).status_code, 429)
-
-
-class ImageConfirmValidationTest(TestCase):
-    def test_non_string_name_returns_400(self):
-        user = make_user('kim')
-        body = {'classes': [{'name': 123, 'day': 'MON', 'start_time': '09:00', 'end_time': '10:00'}]}
-        res = post_json(self.client, '/api/timetables/image/confirm/', body, user)
-        self.assertEqual(res.status_code, 400)
-        self.assertFalse(TimetableClass.objects.exists())
-
-
 class DashboardTimezoneTest(TestCase):
     def test_uses_korean_weekday(self):
         user = make_user('kim')
@@ -158,6 +122,31 @@ class ClientIpTest(TestCase):
     @override_settings(TRUSTED_PROXY_COUNT=0)
     def test_header_ignored_without_trusted_proxy(self):
         self.assertEqual(client_ip(self.request_with('6.6.6.6')), '10.0.0.1')
+
+    @override_settings(CLIENT_IP_HEADER='CF-Connecting-IP', TRUSTED_PROXY_COUNT=1)
+    def test_configured_header_wins_over_forwarded_for(self):
+        request = mock.Mock(META={
+            'HTTP_CF_CONNECTING_IP': '203.0.113.9',
+            'HTTP_X_FORWARDED_FOR': '6.6.6.6',
+            'REMOTE_ADDR': '10.0.0.1',
+        })
+        self.assertEqual(client_ip(request), '203.0.113.9')
+
+    @override_settings(CLIENT_IP_HEADER='CF-Connecting-IP', TRUSTED_PROXY_COUNT=0)
+    def test_missing_or_blank_header_falls_back(self):
+        self.assertEqual(client_ip(mock.Mock(META={'REMOTE_ADDR': '10.0.0.1'})), '10.0.0.1')
+        blank = mock.Mock(META={'HTTP_CF_CONNECTING_IP': '  ', 'REMOTE_ADDR': '10.0.0.1'})
+        self.assertEqual(client_ip(blank), '10.0.0.1')
+
+    @override_settings(CLIENT_IP_HEADER='CF-Connecting-IP', TRUSTED_PROXY_COUNT=0)
+    def test_invalid_header_value_falls_back(self):
+        request = mock.Mock(META={'HTTP_CF_CONNECTING_IP': 'not-an-ip', 'REMOTE_ADDR': '10.0.0.1'})
+        self.assertEqual(client_ip(request), '10.0.0.1')
+
+    @override_settings(CLIENT_IP_HEADER='', TRUSTED_PROXY_COUNT=0)
+    def test_header_ignored_when_not_configured(self):
+        request = mock.Mock(META={'HTTP_CF_CONNECTING_IP': '6.6.6.6', 'REMOTE_ADDR': '10.0.0.1'})
+        self.assertEqual(client_ip(request), '10.0.0.1')
 
 
 class JsonShapeTest(TestCase):

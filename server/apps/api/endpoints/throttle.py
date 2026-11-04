@@ -1,3 +1,5 @@
+import ipaddress
+
 from django.conf import settings
 from django.core.cache import cache
 from django.http import JsonResponse
@@ -8,12 +10,28 @@ DEFAULT_RATE_LIMITS = {
     'login': (20, 60),
     'refresh': (30, 60),
     'everytime': (10, 600),
-    'ocr': (10, 600),
 }
 
 
+def _client_ip_from_header(request):
+    header_name = getattr(settings, 'CLIENT_IP_HEADER', '')
+    if not header_name:
+        return ''
+    meta_key = 'HTTP_' + header_name.upper().replace('-', '_')
+    header_value = request.META.get(meta_key, '').strip()
+    try:
+        ipaddress.ip_address(header_value)
+    except ValueError:
+        return ''
+    return header_value
+
+
 def client_ip(request):
-    """프록시가 덧붙인 오른쪽 항목만 신뢰한다(왼쪽은 클라이언트가 위조 가능)."""
+    """CLIENT_IP_HEADER를 먼저 쓰고, 없으면 프록시가 덧붙인 오른쪽 항목만 신뢰한다(왼쪽은 클라이언트가 위조 가능)."""
+    header_ip = _client_ip_from_header(request)
+    if header_ip:
+        return header_ip
+
     trusted_proxy_count = getattr(settings, 'TRUSTED_PROXY_COUNT', 0)
     forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR', '')
     hops = [hop.strip() for hop in forwarded_for.split(',') if hop.strip()]

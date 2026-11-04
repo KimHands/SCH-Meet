@@ -80,7 +80,7 @@ def fixed_schedules(request):
     if not isinstance(title, str) or not title.strip():
         return JsonResponse({'detail': 'title is required'}, status=400)
     if len(title.strip()) > 20:
-        return JsonResponse({'detail': 'title is too long'}, status=400)
+        return JsonResponse({'detail': '일정 제목은 20자까지 입력할 수 있어요.'}, status=400)
 
     normalized_days = _validate_repeat_days(repeat_days)
     if normalized_days is None:
