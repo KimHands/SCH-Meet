@@ -1,4 +1,4 @@
-# sch-meet 웹 — oci-server(ARM64) 용. 빌드 컨텍스트는 저장소 루트
+# sch-meet 웹 — OCI 서버(ARM64) 용. 빌드 컨텍스트는 저장소 루트
 #   VITE_API_BASE_URL은 지정하지 않는다. 같은 도메인 상대 경로로 API를 호출한다
 FROM node:22-alpine AS build
 ARG VITE_GOOGLE_CLIENT_ID

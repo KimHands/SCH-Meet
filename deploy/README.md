@@ -1,24 +1,24 @@
 # OCI 서버 배포
 
-프론트·API·DB를 oci-server(ARM64, Ubuntu 24.04)의 Compose 스택 하나로 띄운다. 공개는 Cloudflare 터널로만 하고 호스트 포트는 열지 않는다.
+프론트·API·DB를 OCI 서버(ARM64, Ubuntu 24.04)의 Compose 스택 하나로 띄운다. 공개는 Cloudflare 터널로만 하고 호스트 포트는 열지 않는다.
 
 ```
 Cloudflare 터널 → web(Caddy) ─┬ /api/* → api(gunicorn) → db(Postgres 16)
-  sch-meet.kimhands.com       └ 그 외  → 정적 파일         ↑
+  <PUBLIC_HOST>               └ 그 외  → 정적 파일         ↑
                                               backup(일일 pg_dump → R2)
 ```
 
-아래 명령은 모두 `~/stacks/sch-meet/deploy`에서 실행한다.
+아래 명령은 모두 저장소의 `deploy/` 폴더에서 실행한다.
 
 ## 최초 배포
 
-1. 저장소를 `~/stacks/sch-meet`에 받는다(레포 전용 읽기 전용 deploy key).
+1. 저장소를 서버에 받는다(레포 전용 읽기 전용 deploy key).
 2. 공유 네트워크가 없으면 만든다: `docker network create edge`
-3. 환경변수를 채운다: `cp .env.example .env && chmod 600 .env`
+3. 환경변수를 채운다: `cp .env.example .env && chmod 600 .env` (`PUBLIC_HOST`는 필수)
 4. 이미지를 빌드한다: `docker compose build`
 5. DB를 올리고 마이그레이션을 실행한다: `docker compose up -d db && docker compose run --rm api python manage.py migrate`
 6. 나머지를 올린다: `docker compose up -d`
-7. 터널에 `sch-meet.kimhands.com → http://sch-meet-web:8080`을 추가한다. 외부 공개이므로 매번 사람이 승인한다.
+7. 터널에 `<PUBLIC_HOST> → http://sch-meet-web:8080`을 추가한다. 외부 공개이므로 매번 사람이 승인한다.
 
 ## 업데이트
 
@@ -40,7 +40,7 @@ gunicorn은 워커 1개에 스레드 4개로 둔다. 레이트리밋이 프로�
 각 단계는 사람이 승인한 뒤 실행한다.
 
 1. OCR.space의 옛 키를 폐기한다. 공개 git 이력에 남아 있고, OCR 기능은 제거했다.
-2. Google OAuth 승인된 자바스크립트 원본에 `https://sch-meet.kimhands.com`을 추가한다.
+2. Google OAuth 승인된 자바스크립트 원본에 `https://<PUBLIC_HOST>`을 추가한다.
 3. 터널 경로를 추가하고 실제 요청을 확인한다.
    - `X-Forwarded-Proto: https`가 Django까지 와서 리다이렉트가 반복되지 않는지
    - `CF-Connecting-IP`로 레이트리밋이 IP별로 나뉘는지
