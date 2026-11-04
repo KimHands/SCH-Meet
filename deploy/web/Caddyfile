@@ -23,6 +23,10 @@
 	encode zstd gzip
 	header -Server
 
+	# 터널을 거친 HTTP 요청만 HTTPS로 보낸다. 컨테이너 내부 헬스체크에는 이 헤더가 없다
+	@plain_http header X-Forwarded-Proto http
+	redir @plain_http https://{host}{uri} 308
+
 	handle /api/* {
 		# 공유 edge 네트워크에서 다른 앱의 api로 해석되지 않도록 고유 별칭을 쓴다
 		reverse_proxy sch-meet-api:8000

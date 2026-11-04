@@ -1,6 +1,6 @@
 import { colors, screenStyle } from '../styles/theme';
 import AppBar from '../components/AppBar';
-import { LEGAL_DOCUMENTS, LEGAL_NOTICE } from '../content/legal';
+import { LEGAL_DOCUMENTS, LEGAL_EFFECTIVE_DATE } from '../content/legal';
 
 const isLink = (text) => text.startsWith('https://');
 
@@ -17,7 +17,7 @@ export default function LegalPage({ documentKey }) {
     <main style={screenStyle}>
       <AppBar title={title} />
       <div style={{ flex: 1, overflowY: 'auto', padding: '8px 20px 28px' }}>
-        <p style={{ fontSize: 12, color: colors.outline }}>{LEGAL_NOTICE}</p>
+        <p style={{ fontSize: 12, color: colors.outline }}>{LEGAL_EFFECTIVE_DATE}</p>
         {sections.map((section) => (
           <section key={section.heading} style={{ marginTop: 20 }}>
             <h2 style={{ fontSize: 14, fontWeight: '700', color: colors.onSurface }}>{section.heading}</h2>

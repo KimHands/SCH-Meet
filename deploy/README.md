@@ -54,9 +54,8 @@ gunicorn은 워커 1개에 스레드 4개로 둔다. 레이트리밋이 프로�
     && docker compose up -d web api
   ```
 
-- 백업 실패 알림은 없다. 컨테이너가 `unhealthy`로만 표시되므로 `docker compose ps backup`이나 서버 모니터링으로 확인한다.
+- 백업이 실패하면 `TELEGRAM_BOT_TOKEN`과 `TELEGRAM_CHAT_ID`로 알림을 보낸다. 백업 컨테이너 자체가 멈춘 경우는 알림이 가지 않으므로 `docker compose ps backup`이나 서버 모니터링으로 확인한다.
 
-R2 업로드는 로컬에서 시험하지 않았다. 공개 전에 서버에서 백업과 복원을 한 번 시험한다.
 
 ## 신뢰 경계
 
