@@ -146,8 +146,8 @@ flowchart LR
 ### 1. 저장소 클론
 
 ```bash
-git clone https://github.com/KimHands/SCH-Meet.git
-cd SCH-Meet
+git clone https://github.com/KimHands/sch-meet.git
+cd sch-meet
 ```
 
 ### 2. Backend
@@ -241,7 +241,7 @@ Base URL: `/api` · 인증이 필요한 요청은 JWT를 사용합니다.
 ## 프로젝트 구조
 
 ```
-SCH-Meet/
+sch-meet/
 ├── frontend/              React + Vite
 │   ├── src/
 │   │   ├── api/           API 클라이언트
