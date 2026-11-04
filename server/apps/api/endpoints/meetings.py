@@ -1,4 +1,5 @@
 import json
+import re
 import secrets
 import datetime
 import math
@@ -40,6 +41,7 @@ DAY_CODE_LABELS = {
     'SAT': '토',
     'SUN': '일',
 }
+REQUESTED_DAY_PATTERN = re.compile(r'([월화수목금토일])요일|(?<![가-힣0-9])([월화수목금토일]+)(?![가-힣])')
 
 
 def _get_profile_display_name(user):
@@ -252,6 +254,11 @@ def _contains_any(text, values):
     return any(value.lower() in lowered for value in values)
 
 
+def _requested_day_labels(requested_time):
+    matches = REQUESTED_DAY_PATTERN.findall(requested_time)
+    return {label for full_name, standalone in matches for label in full_name + standalone}
+
+
 def _does_slot_match_requested_time(day_code, start_minute, meeting):
     requested_time = (meeting.desired_time or '').strip()
     if not requested_time:
@@ -271,10 +278,9 @@ def _does_slot_match_requested_time(day_code, start_minute, meeting):
     if _contains_any(requested_time, ['저녁', '밤']) and daypart in ['evening', 'night']:
         reasons.append('저녁 선호와 일치')
 
-    for code, label in DAY_CODE_LABELS.items():
-        if label in requested_time and code == day_code:
-            reasons.append(f'{label}요일 선호와 일치')
-            break
+    day_label = DAY_CODE_LABELS.get(day_code)
+    if day_label in _requested_day_labels(requested_time):
+        reasons.append(f'{day_label}요일 선호와 일치')
 
     return reasons
 

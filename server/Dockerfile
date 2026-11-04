@@ -1,4 +1,4 @@
-# sch-meet API — oci-server(ARM64) 용. 빌드 컨텍스트는 server/
+# sch-meet API — OCI 서버(ARM64) 용. 빌드 컨텍스트는 server/
 FROM python:3.12-slim
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 WORKDIR /app
