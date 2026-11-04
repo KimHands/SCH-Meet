@@ -56,11 +56,11 @@ function useDashboardData() {
 }
 
 function SummaryCards({ summary }) {
-  const count = (value) => (summary ? `${value}개` : '-');
+  const count = (value, unit = '개') => (summary ? `${value}${unit}` : '-');
   const cards = [
     { icon: 'school',       fg: colors.primary,           n: count(summary?.remaining_classes),            label: '남은 수업' },
     { icon: 'assignment',   fg: colors.primary,           n: count(summary?.today_tasks),                  label: '오늘 일정' },
-    { icon: 'groups',       fg: colors.primary,           n: count(summary?.pending_requests),             label: '새 참여자' },
+    { icon: 'groups',       fg: colors.primary,           n: count(summary?.pending_requests, '명'),        label: '새 참여자' },
     { icon: 'auto_awesome', fg: colors.tertiaryContainer, n: count(summary?.weekly_recommendations_count), label: '이번 주 추천' },
   ];
   return (
@@ -219,8 +219,8 @@ export default function HomePage() {
 
         {/* 헤더 */}
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-          <div style={{ flex: 1 }}>
-            <h1 style={{ fontSize: 20, fontWeight: '700', lineHeight: '26px', color: colors.onSurface }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <h1 style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', overflowWrap: 'anywhere', fontSize: 20, fontWeight: '700', lineHeight: '26px', color: colors.onSurface }}>
               안녕하세요{nickname ? `, ${nickname}님` : ''} 👋
             </h1>
             <p style={{ marginTop: 5, fontSize: 12, lineHeight: '17px', color: colors.secondary }}>

@@ -186,8 +186,8 @@ export default function MeetingDetailPage() {
               paddingTop: 11, paddingBottom: 11,
               borderBottom: rowBorder(i, INFO.length),
             }}>
-              <dt style={{ fontSize: 13, color: colors.outline }}>{label}</dt>
-              <dd style={{ fontSize: 13, fontWeight: '500', color: colors.onSurface, textAlign: 'right' }}>{value}</dd>
+              <dt style={{ flexShrink: 0, fontSize: 13, color: colors.outline }}>{label}</dt>
+              <dd style={{ minWidth: 0, overflowWrap: 'anywhere', fontSize: 13, fontWeight: '500', color: colors.onSurface, textAlign: 'right' }}>{value}</dd>
             </div>
           ))}
         </dl>

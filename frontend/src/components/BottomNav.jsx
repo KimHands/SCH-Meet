@@ -25,7 +25,7 @@ export default function BottomNav() {
         left: '50%',
         transform: 'translateX(-50%)',
         width: '100%',
-        maxWidth: 390,
+        maxWidth: 480,
         height: 62,
         borderTop: `1px solid ${colors.surfaceContainerHighest}`,
         backgroundColor: colors.surfaceContainerLowest,

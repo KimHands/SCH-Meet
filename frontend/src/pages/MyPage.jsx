@@ -154,9 +154,9 @@ export default function MyPage() {
                   }}
                 />
               ) : (
-                <p style={{ fontSize: 17, fontWeight: '700', color: colors.onSurface }}>{displayName}</p>
+                <p style={{ overflowWrap: 'anywhere', fontSize: 17, fontWeight: '700', color: colors.onSurface }}>{displayName}</p>
               )}
-              <p style={{ fontSize: 13, color: colors.outline, marginTop: 2 }}>
+              <p style={{ overflowWrap: 'anywhere', fontSize: 13, color: colors.outline, marginTop: 2 }}>
                 {profile?.email || ''}
               </p>
             </div>

@@ -128,7 +128,7 @@ export default function CalendarPage() {
                           padding: '3px 4px',
                           overflow: 'hidden',
                         }}>
-                          <span style={{ fontSize: 11, fontWeight: '600', color: textColor(mainItem), lineHeight: '13px', wordBreak: 'keep-all' }}>
+                          <span style={{ fontSize: 11, fontWeight: '600', color: textColor(mainItem), lineHeight: '13px', wordBreak: 'break-all' }}>
                             {block.items.map((it) => it.title).join(', ')}
                           </span>
                         </div>

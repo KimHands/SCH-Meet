@@ -6,6 +6,8 @@ import { loginWithGoogle } from '../api/auth';
 import { token } from '../utils/token';
 import { consumeRedirectPath } from '../utils/redirect';
 
+const GOOGLE_BUTTON_MAX_WIDTH = 334;
+
 // 신규 사용자는 시간표 등록부터 — 저장된 돌아갈 경로는 초기 설정이 끝난 뒤 사용한다
 function pathAfterLogin(isNewUser) {
   if (isNewUser) return '/upload-timetable';
@@ -39,9 +41,10 @@ export default function LoginPage() {
         callback: handleCredentialResponse,
       });
       // 버튼을 구글이 직접 렌더링 — FedCM 팝업 방식보다 안정적
+      const buttonHost = document.getElementById('google-btn');
       window.google.accounts.id.renderButton(
-        document.getElementById('google-btn'),
-        { theme: 'outline', size: 'large', width: 334, text: 'signin_with', shape: 'pill' }
+        buttonHost,
+        { theme: 'outline', size: 'large', width: Math.min(GOOGLE_BUTTON_MAX_WIDTH, buttonHost.clientWidth), text: 'signin_with', shape: 'pill' }
       );
     };
 

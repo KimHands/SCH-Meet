@@ -53,7 +53,7 @@ function useToastFromNavigation(showToast) {
 
 function DayPicker({ selectedDays, onToggle }) {
   return (
-    <div role="group" aria-labelledby="repeat-days-label" style={{ marginTop: 8, display: 'flex', gap: 6 }}>
+    <div role="group" aria-labelledby="repeat-days-label" style={{ marginTop: 8, display: 'flex', gap: 4 }}>
       {DAYS.map((d, i) => {
         const on = selectedDays.includes(i);
         return (
@@ -64,7 +64,7 @@ function DayPicker({ selectedDays, onToggle }) {
             aria-pressed={on}
             aria-label={`${d}요일`}
             style={{
-              flex: 1, aspectRatio: '1', borderRadius: 9999,
+              flex: 1, minWidth: 0, height: 40, borderRadius: 9999,
               border: `1px solid ${on ? colors.primary : colors.outlineVariant}`,
               backgroundColor: on ? colors.primary : 'transparent',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
