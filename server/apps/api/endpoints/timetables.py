@@ -11,6 +11,7 @@ from django.views.decorators.csrf import csrf_exempt
 
 from ..models import FixedSchedule, TimetableClass
 from .common import method_not_allowed
+from .meetings import close_finished_meetings
 from .user import _get_authorized_user
 from .throttle import check_rate_limit
 
@@ -338,6 +339,7 @@ def consolidated_timetables(request):
     if error_response:
         return error_response
 
+    close_finished_meetings([user.id])
     daily_events = {day_code: [] for day_code in DAY_CODES}
 
     for timetable_class in TimetableClass.objects.filter(user=user):

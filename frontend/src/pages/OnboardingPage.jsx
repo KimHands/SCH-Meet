@@ -13,14 +13,14 @@ const MESSAGES = [
 const FEATURES = [
   { icon: 'upload_file',  bg: colors.primaryFixed,  fg: colors.primary,          title: '에타 시간표 등록',   sub: '공강 시간 자동 계산' },
   { icon: 'event_repeat', bg: colors.primaryFixed,  fg: colors.primary,          title: '고정 일정 추가',       sub: '수업, 알바, 동아리 등 반복 일정 관리' },
-  { icon: 'auto_awesome', bg: colors.tertiaryFixed, fg: colors.tertiaryContainer, title: 'AI 최적의 시간 추천', sub: '모두가 가능한 시간대 바로 찾기' },
+  { icon: 'auto_awesome', bg: colors.tertiaryFixed, fg: colors.tertiaryContainer, title: '최적의 시간 추천', sub: '모두가 가능한 시간대 바로 찾기' },
 ];
 
 function Slide1({ onNext, onSkip }) {
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '6px 24px 0' }}>
       <div style={{ textAlign: 'right' }}>
-        <button type="button" onClick={onSkip} style={{ fontSize: 14, fontWeight: '500', color: colors.outline, padding: 4 }}>
+        <button type="button" onClick={onSkip} style={{ fontSize: 14, fontWeight: '500', color: colors.outline, padding: 4, minHeight: 44, minWidth: 44 }}>
           건너뛰기
         </button>
       </div>
@@ -66,7 +66,7 @@ function Slide2({ onStart, onSkip }) {
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '6px 24px 0' }}>
       <div style={{ textAlign: 'right' }}>
-        <button type="button" onClick={onSkip} style={{ fontSize: 14, fontWeight: '500', color: colors.outline, padding: 4 }}>
+        <button type="button" onClick={onSkip} style={{ fontSize: 14, fontWeight: '500', color: colors.outline, padding: 4, minHeight: 44, minWidth: 44 }}>
           건너뛰기
         </button>
       </div>
@@ -89,7 +89,7 @@ function Slide2({ onStart, onSkip }) {
       </div>
 
       <p style={{ marginTop: 18, textAlign: 'center', fontSize: 14, lineHeight: '21px', color: colors.onSurfaceVariant }}>
-        SCH-Meet이 AI로 공강 시간을 분석해<br />최적의 만남 시간을 추천해드려요!
+        SCH-Meet이 공강 시간을 비교해<br />최적의 만남 시간을 추천해드려요!
       </p>
 
       <div style={{ marginTop: 24, display: 'flex', flexDirection: 'column', gap: 12 }}>

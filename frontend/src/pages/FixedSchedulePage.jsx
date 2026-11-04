@@ -7,10 +7,11 @@ import Icon from '../components/Icon';
 import Toast from '../components/Toast';
 import ErrorBanner from '../components/ErrorBanner';
 import { useToast } from '../hooks/useToast';
-import { getSchedules, addSchedule, deleteSchedule, DAY_MAP } from '../api/schedule';
+import { getSchedules, addSchedule, deleteSchedule, updateSchedule, DAY_MAP } from '../api/schedule';
 import { consumeRedirectPath } from '../utils/redirect';
 
 const DAYS = ['월', '화', '수', '목', '금', '토', '일'];
+const MAX_TITLE_LENGTH = 50;
 
 const smallLabelStyle = { display: 'block', fontSize: 12, fontWeight: '600', color: colors.onSurfaceVariant };
 const smallInputStyle = (hasError) => ({ ...inputStyle(hasError), marginTop: 6, height: 42, paddingLeft: 12, paddingRight: 12, fontSize: 13 });
@@ -23,6 +24,9 @@ const formatSchedule = (s) => {
   return {
     id: s.id,
     title: s.title,
+    repeatDays: s.repeat_days || [],
+    startTime: s.start_time,
+    endTime: s.end_time,
     when: `매주 ${dayLabels} ${s.start_time} ~ ${s.end_time}`,
   };
 };
@@ -75,7 +79,7 @@ function DayPicker({ selectedDays, onToggle }) {
   );
 }
 
-function ScheduleItem({ schedule, deleting, onDelete }) {
+function ScheduleItem({ schedule, deleting, onEdit, onDelete }) {
   return (
     <li style={{
       display: 'flex', alignItems: 'center', gap: 11,
@@ -91,6 +95,14 @@ function ScheduleItem({ schedule, deleting, onDelete }) {
       </div>
       <button
         type="button"
+        onClick={onEdit}
+        aria-label={`${schedule.title} 일정 수정`}
+        style={{ ...iconButtonStyle, padding: 6 }}
+      >
+        <Icon name="edit" size={18} color={colors.primary} />
+      </button>
+      <button
+        type="button"
         onClick={onDelete}
         disabled={deleting}
         aria-label={`${schedule.title} 일정 삭제`}
@@ -104,7 +116,10 @@ function ScheduleItem({ schedule, deleting, onDelete }) {
 
 export default function FixedSchedulePage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const isManaging = !!location.state?.manage;
   const { toast, showToast } = useToast();
+  const [editingId, setEditingId] = useState(null);
   const [selectedDays, setSelectedDays] = useState([]);
   const [title, setTitle] = useState('');
   const [startTime, setStartTime] = useState('');
@@ -136,7 +151,17 @@ export default function FixedSchedulePage() {
   };
 
   const resetForm = () => {
+    setEditingId(null);
     setTitle(''); setStartTime(''); setEndTime(''); setSelectedDays([]);
+  };
+
+  const startEdit = (schedule) => {
+    setEditingId(schedule.id);
+    setTitle(schedule.title);
+    setStartTime(schedule.startTime);
+    setEndTime(schedule.endTime);
+    setSelectedDays(schedule.repeatDays.map((code) => DAYS.findIndex((label) => DAY_MAP[label] === code)));
+    setFormError('');
   };
 
   const handleAdd = async () => {
@@ -146,15 +171,22 @@ export default function FixedSchedulePage() {
 
     setAddLoading(true);
     try {
-      const newSchedule = await addSchedule({
+      const fields = {
         title: title.trim(),
         repeat_days: [...selectedDays].sort().map((i) => DAY_MAP[DAYS[i]]),
         start_time: startTime,
         end_time: endTime,
-      });
-      setSavedList((prev) => [formatSchedule(newSchedule), ...prev]);
+      };
+      if (editingId) {
+        const updated = formatSchedule(await updateSchedule(editingId, fields));
+        setSavedList((prev) => prev.map((item) => (item.id === editingId ? updated : item)));
+        showToast('일정을 수정했어요.');
+      } else {
+        const created = formatSchedule(await addSchedule(fields));
+        setSavedList((prev) => [created, ...prev]);
+        showToast('일정이 추가되었어요.');
+      }
       resetForm();
-      showToast('일정이 추가되었어요.');
     } catch (e) {
       setFormError(e.message || '일정 추가 중 오류가 발생했습니다.');
     } finally {
@@ -168,6 +200,7 @@ export default function FixedSchedulePage() {
     try {
       await deleteSchedule(schedule.id);
       setSavedList((prev) => prev.filter((item) => item.id !== schedule.id));
+      if (editingId === schedule.id) resetForm();
       showToast('일정이 삭제되었어요.');
     } catch (e) {
       showToast(e.message || '일정 삭제 중 오류가 발생했습니다.');
@@ -192,7 +225,7 @@ export default function FixedSchedulePage() {
       <div style={{ flex: 1, overflowY: 'auto', padding: '8px 20px 16px' }}>
 
         <h1 style={{ marginTop: 6, fontSize: 22, fontWeight: '700', lineHeight: '30px', letterSpacing: '-0.22px', color: colors.onSurface }}>
-          고정 일정을 추가해주세요
+          {isManaging ? '고정 일정 관리' : '고정 일정을 추가해주세요'}
         </h1>
         <p style={{ marginTop: 8, fontSize: 13, lineHeight: '19px', color: colors.secondary }}>
           수업, 알바, 동아리 등<br />매주 반복되는 일정을 직접 등록할 수 있어요.
@@ -202,7 +235,7 @@ export default function FixedSchedulePage() {
         <section aria-labelledby="add-schedule-title" style={{ marginTop: 16, backgroundColor: '#fff', border: `1px solid ${colors.surfaceContainerHighest}`, borderRadius: 16, padding: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <Icon name="add_circle" size={18} color={colors.primary} />
-            <h2 id="add-schedule-title" style={{ fontSize: 14, fontWeight: '600', color: colors.primary }}>일정 추가</h2>
+            <h2 id="add-schedule-title" style={{ fontSize: 14, fontWeight: '600', color: colors.primary }}>{editingId ? '일정 수정' : '일정 추가'}</h2>
           </div>
 
           <label htmlFor="schedule-title" style={{ ...smallLabelStyle, marginTop: 14 }}>일정 제목</label>
@@ -210,8 +243,8 @@ export default function FixedSchedulePage() {
             id="schedule-title"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="예) 자료구조, 알바 (최대 20자)"
-            maxLength={20}
+            placeholder={`예) 자료구조, 알바 (최대 ${MAX_TITLE_LENGTH}자)`}
+            maxLength={MAX_TITLE_LENGTH}
             style={smallInputStyle(false)}
           />
 
@@ -230,12 +263,21 @@ export default function FixedSchedulePage() {
 
           <Button
             variant="secondary"
-            label={addLoading ? '추가 중...' : '추가하기'}
+            label={addLoading ? '저장 중...' : editingId ? '수정 저장' : '추가하기'}
             onClick={handleAdd}
             disabled={addLoading}
             height={44} fontSize={13}
             style={{ width: '100%', marginTop: 14 }}
           />
+          {editingId && (
+            <Button
+              variant="outline"
+              label="수정 취소"
+              onClick={resetForm}
+              height={44} fontSize={13}
+              style={{ width: '100%', marginTop: 8 }}
+            />
+          )}
         </section>
 
         {/* 등록된 일정 목록 */}
@@ -253,6 +295,7 @@ export default function FixedSchedulePage() {
               key={s.id}
               schedule={s}
               deleting={deletingId === s.id}
+              onEdit={() => startEdit(s)}
               onDelete={() => handleDelete(s)}
             />
           ))}
@@ -261,8 +304,14 @@ export default function FixedSchedulePage() {
       </div>
 
       <div style={{ display: 'flex', gap: 10, padding: '14px 20px 18px' }}>
-        <Button variant="outline" label="이전" onClick={() => navigate(-1)} height={52} fontSize={15} style={{ flex: 1 }} />
-        <Button label="시작하기" onClick={handleStart} height={52} fontSize={15} style={{ flex: 1.6 }} />
+        {isManaging ? (
+          <Button label="완료" onClick={() => navigate(-1)} height={52} fontSize={15} style={{ flex: 1 }} />
+        ) : (
+          <>
+            <Button variant="outline" label="이전" onClick={() => navigate(-1)} height={52} fontSize={15} style={{ flex: 1 }} />
+            <Button label="시작하기" onClick={handleStart} height={52} fontSize={15} style={{ flex: 1.6 }} />
+          </>
+        )}
       </div>
 
     </main>

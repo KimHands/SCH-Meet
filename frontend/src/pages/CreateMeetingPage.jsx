@@ -1,14 +1,20 @@
-import { useState, useId } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useState, useId } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import { colors, screenStyle, inputStyle, fieldLabelStyle } from '../styles/theme';
 import AppBar from '../components/AppBar';
 import Button from '../components/Button';
 import Icon from '../components/Icon';
-import { createMeeting } from '../api/meetings';
-import { DEFAULT_DURATION_MINUTES, DURATION_OPTIONS, formatDuration } from '../utils/duration';
+import LoadingSpinner from '../components/LoadingSpinner';
+import { createMeeting, getMeeting, updateMeeting } from '../api/meetings';
+import { DURATION_OPTIONS, formatDuration } from '../utils/duration';
+import {
+  CAPACITY_OPTIONS,
+  EMPTY_MEETING_FORM,
+  PURPOSE_OPTIONS,
+  capacityToNumber,
+  meetingToFormValues,
+} from '../utils/meetingForm';
 
-const PURPOSE_OPTIONS = ['조용한 회의', '스터디', '조별 과제', '친목 모임', '기타'];
-const CAPACITY_OPTIONS = ['2명', '3명', '4명', '5명', '6명', '7명', '8명 이상'];
 const DURATION_SELECT_OPTIONS = DURATION_OPTIONS.map((minutes) => ({
   value: String(minutes),
   label: formatDuration(minutes),
@@ -93,16 +99,41 @@ function validateForm({ name, purpose, customPurpose, capacity }) {
 
 export default function CreateMeetingPage() {
   const navigate = useNavigate();
+  const { id: meetingId } = useParams();
+  const isEdit = !!meetingId;
 
-  const [name, setName] = useState('');
-  const [purpose, setPurpose] = useState('');
-  const [customPurpose, setCustomPurpose] = useState('');
-  const [time, setTime] = useState('');
-  const [place, setPlace] = useState('');
-  const [capacity, setCapacity] = useState('');
-  const [duration, setDuration] = useState(String(DEFAULT_DURATION_MINUTES));
+  const [form, setForm] = useState(EMPTY_MEETING_FORM);
+  const [original, setOriginal] = useState(null);
+  const [loadingMeeting, setLoadingMeeting] = useState(isEdit);
+  const [loadError, setLoadError] = useState('');
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
+
+  const { name, purpose, customPurpose, time, place, capacity, duration } = form;
+  const setField = (field) => (value) => setForm((prev) => ({ ...prev, [field]: value }));
+  const isTimeLocked = isEdit && original?.status !== 'OPEN';
+
+  useEffect(() => {
+    if (!isEdit) return;
+    getMeeting(meetingId)
+      .then((meeting) => {
+        setOriginal(meeting);
+        setForm(meetingToFormValues(meeting));
+      })
+      .catch((e) => setLoadError(e.message || '모임 정보를 불러오지 못했어요.'))
+      .finally(() => setLoadingMeeting(false));
+  }, [isEdit, meetingId]);
+
+  const buildPayload = () => {
+    const payload = {
+      name: name.trim(),
+      purpose: purpose === '기타' ? customPurpose.trim() : purpose,
+      desired_time: time.trim(),
+      desired_location: place.trim(),
+      capacity: capacityToNumber(capacity, original?.capacity),
+    };
+    return isTimeLocked ? payload : { ...payload, duration_minutes: Number(duration) };
+  };
 
   const handleSubmit = async () => {
     const newErrors = validateForm({ name, purpose, customPurpose, capacity });
@@ -111,25 +142,37 @@ export default function CreateMeetingPage() {
 
     setLoading(true);
     try {
-      const result = await createMeeting({
-        name: name.trim(),
-        purpose: purpose === '기타' ? customPurpose.trim() : purpose,
-        desired_time: time.trim(),
-        desired_location: place.trim(),
-        capacity: parseInt(capacity.replace(/[^0-9]/g, ''), 10), // "8명 이상" → 8
-        duration_minutes: Number(duration),
-      });
-      navigate(`/meetings/${result.meeting_id}`);
+      if (isEdit) {
+        await updateMeeting(meetingId, buildPayload());
+        navigate(`/meetings/${meetingId}`, { replace: true });
+      } else {
+        const result = await createMeeting(buildPayload());
+        navigate(`/meetings/${result.meeting_id}`);
+      }
     } catch (e) {
       setErrors({ submit: e.message });
       setLoading(false);
     }
   };
 
+  if (loadingMeeting) return <LoadingSpinner />;
+  // 빈 폼을 저장하면 기존 값을 지우게 되므로 불러오기에 실패하면 폼을 열지 않는다
+  if (loadError) {
+    return (
+      <main style={screenStyle}>
+        <AppBar title="모임 수정" />
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, padding: '0 24px' }}>
+          <p role="alert" style={{ fontSize: 14, color: colors.onSurfaceVariant, textAlign: 'center' }}>{loadError}</p>
+          <Button variant="outline" label="돌아가기" onClick={() => navigate(-1)} height={44} fontSize={14} style={{ paddingLeft: 24, paddingRight: 24 }} />
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main style={screenStyle}>
 
-      <AppBar title="모임 만들기" />
+      <AppBar title={isEdit ? '모임 수정' : '모임 만들기'} />
 
       <div style={{ flex: 1, overflowY: 'auto', padding: '14px 20px 16px', display: 'flex', flexDirection: 'column', gap: 16 }}>
 
@@ -137,7 +180,7 @@ export default function CreateMeetingPage() {
           label="모임 이름"
           placeholder="예) 중간발표 준비"
           value={name}
-          onChange={setName}
+          onChange={setField('name')}
           error={errors.name}
         />
 
@@ -147,7 +190,7 @@ export default function CreateMeetingPage() {
             placeholder="목적을 선택하세요"
             options={toOptions(PURPOSE_OPTIONS)}
             value={purpose}
-            onChange={(val) => { setPurpose(val); setCustomPurpose(''); }}
+            onChange={(val) => setForm((prev) => ({ ...prev, purpose: val, customPurpose: '' }))}
             error={errors.purpose}
           />
           {purpose === '기타' && (
@@ -155,31 +198,33 @@ export default function CreateMeetingPage() {
               ariaLabel="모임 목적 직접 입력"
               placeholder="목적을 직접 입력해주세요"
               value={customPurpose}
-              onChange={setCustomPurpose}
+              onChange={setField('customPurpose')}
               error={errors.customPurpose}
             />
           )}
         </div>
 
-        <SelectField
-          label="모임 소요 시간"
-          options={DURATION_SELECT_OPTIONS}
-          value={duration}
-          onChange={setDuration}
-        />
+        {!isTimeLocked && (
+          <SelectField
+            label="모임 소요 시간"
+            options={DURATION_SELECT_OPTIONS}
+            value={duration}
+            onChange={setField('duration')}
+          />
+        )}
 
         <InputField
           label="희망 시간"
           placeholder="예) 오후 8시, 주중 저녁 등"
           value={time}
-          onChange={setTime}
+          onChange={setField('time')}
         />
 
         <InputField
           label="희망 장소"
           placeholder="예) 학생회관 1층 회의실, 카페 등"
           value={place}
-          onChange={setPlace}
+          onChange={setField('place')}
         />
 
         <SelectField
@@ -187,7 +232,7 @@ export default function CreateMeetingPage() {
           placeholder="정원을 선택하세요"
           options={toOptions(CAPACITY_OPTIONS)}
           value={capacity}
-          onChange={setCapacity}
+          onChange={setField('capacity')}
           error={errors.capacity}
         />
 
@@ -198,7 +243,7 @@ export default function CreateMeetingPage() {
           <p role="alert" style={{ marginBottom: 8, fontSize: 12, color: colors.error, textAlign: 'center' }}>{errors.submit}</p>
         )}
         <Button
-          label={loading ? '생성 중...' : '초대 링크 생성'}
+          label={isEdit ? (loading ? '저장 중...' : '저장') : (loading ? '생성 중...' : '초대 링크 생성')}
           onClick={handleSubmit}
           disabled={loading}
           style={{ width: '100%' }}

@@ -33,7 +33,7 @@ class TimetableClass(models.Model):
 
 class FixedSchedule(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='fixed_schedules')
-    title = models.CharField(max_length=20)
+    title = models.CharField(max_length=50)
     repeat_days = models.JSONField(default=list)
     start_time = models.TimeField()
     end_time = models.TimeField()
@@ -61,6 +61,7 @@ class Meeting(models.Model):
     creator = models.ForeignKey(User, on_delete=models.CASCADE, related_name='created_meetings')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='OPEN')
     confirmed_recommendation_id = models.PositiveIntegerField(null=True, blank=True)
+    confirmed_date = models.DateField(null=True, blank=True)
     confirmed_day = models.CharField(max_length=3, blank=True, default='')
     confirmed_start_minute = models.PositiveIntegerField(null=True, blank=True)
     confirmed_end_minute = models.PositiveIntegerField(null=True, blank=True)

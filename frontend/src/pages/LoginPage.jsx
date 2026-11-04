@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { colors, screenStyle } from '../styles/theme';
 import Icon from '../components/Icon';
 import { loginWithGoogle } from '../api/auth';
@@ -131,7 +131,8 @@ export default function LoginPage() {
           lineHeight: '18px',
           color: colors.outline,
         }}>
-          로그인하면 서비스 이용약관 및<br />개인정보처리방침에 동의하게 됩니다.
+          로그인하면 <Link to="/terms" style={{ textDecoration: 'underline' }}>서비스 이용약관</Link> 및<br />
+          <Link to="/privacy" style={{ textDecoration: 'underline' }}>개인정보처리방침</Link>에 동의하게 됩니다.
         </span>
       </div>
 
