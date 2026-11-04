@@ -24,7 +24,7 @@ SCH-Meet의 프론트엔드와 백엔드, DB를 Vercel·Render에서 사용자 O
 
 ```
 Cloudflare 터널 → web(Caddy) ─┬ /api/* → api(gunicorn) → db(Postgres 16)
-  sch-meet.kimhands.com       └ 그 외  → 정적 파일         ↑
+  sch-meet.example.com       └ 그 외  → 정적 파일         ↑
                                               backup(일일 pg_dump → R2)
 ```
 
@@ -91,7 +91,7 @@ Cloudflare 터널 → web(Caddy) ─┬ /api/* → api(gunicorn) → db(Postgres
 
 ### `deploy/.env.example`
 
-`PUBLIC_HOST`(기본값 `sch-meet.kimhands.com`), `POSTGRES_PASSWORD`, `DJANGO_SECRET_KEY`, `GOOGLE_CLIENT_ID`(웹 빌드 인자 `VITE_GOOGLE_CLIENT_ID`로도 쓰임), `OCR_SPACE_API_KEY`, `BACKUP_R2_BUCKET`, `BACKUP_R2_ENDPOINT`, `BACKUP_R2_ACCESS_KEY_ID`, `BACKUP_R2_SECRET_ACCESS_KEY`. 값은 서버의 `deploy/.env`(chmod 600)에만 둔다.
+`PUBLIC_HOST`(필수, 예: `sch-meet.example.com`), `POSTGRES_PASSWORD`, `DJANGO_SECRET_KEY`, `GOOGLE_CLIENT_ID`(웹 빌드 인자 `VITE_GOOGLE_CLIENT_ID`로도 쓰임), `OCR_SPACE_API_KEY`, `BACKUP_R2_BUCKET`, `BACKUP_R2_ENDPOINT`, `BACKUP_R2_ACCESS_KEY_ID`, `BACKUP_R2_SECRET_ACCESS_KEY`. 값은 서버의 `deploy/.env`(chmod 600)에만 둔다.
 
 ### `deploy/backup/`
 
@@ -129,7 +129,7 @@ toeic 레포의 `deploy/backup`(`Dockerfile`, `backup.sh`, `entrypoint.sh`, `res
 
 ## 4. 운영 규칙
 
-- **마이그레이션:** 컨테이너 시작 시 자동 실행하지 않는다. 사람이 `docker compose run --rm api python manage.py migrate`로 실행한다(`~/Ops/domains/web.md` 규칙).
+- **마이그레이션:** 컨테이너 시작 시 자동 실행하지 않는다. 사람이 `docker compose run --rm api python manage.py migrate`로 실행한다.
 - **gunicorn:** 레이트리밋이 프로세스 메모리 캐시이므로 워커 1개에 스레드 4개로 둔다. 워커를 늘리려면 공유 캐시를 먼저 도입해야 한다.
 - **비밀값:** 저장소와 이미지에 넣지 않는다. `VITE_GOOGLE_CLIENT_ID`는 공개 값이라 빌드 인자로 쓴다.
 
@@ -173,7 +173,7 @@ toeic 레포의 `deploy/backup`(`Dockerfile`, `backup.sh`, `entrypoint.sh`, `res
 
 ### 리뷰
 
-구현 후 `/code-review`를 거치고, 되돌리기 어려운 변경이므로 Codex 리뷰를 받는다(`~/Ops/domains/review.md`).
+구현 후 `/code-review`를 거치고, 되돌리기 어려운 변경이므로 Codex 리뷰를 받는다.
 
 ## 6. 전환 때 처리할 항목 (이번 구현 범위 밖, README에 기록)
 
@@ -182,8 +182,8 @@ toeic 레포의 `deploy/backup`(`Dockerfile`, `backup.sh`, `entrypoint.sh`, `res
 1. OCR.space 키를 재발급한다. 옛 키는 공개 git 이력에 남아 있다.
 2. Render DB의 Postgres 버전을 확인한다. 16보다 높으면 `db`, `backup` 이미지 버전을 올린다.
 3. PR #13을 머지하기 전에 Render DB를 백업한다. 마이그레이션 0011은 역방향 복구가 안 된다.
-4. Google OAuth 승인된 자바스크립트 원본에 `https://sch-meet.kimhands.com`을 추가한다.
-5. 터널에 `sch-meet.kimhands.com → http://sch-meet-web:8080`을 추가한다. 외부 공개이므로 별도 승인을 받는다.
+4. Google OAuth 승인된 자바스크립트 원본에 `https://sch-meet.example.com`을 추가한다.
+5. 터널에 `sch-meet.example.com → http://sch-meet-web:8080`을 추가한다. 외부 공개이므로 별도 승인을 받는다.
 6. 실제 요청 헤더를 확인한다.
 7. 쓰기를 멈추고 `pg_dump`로 옮긴 뒤 `migrate`를 실행한다.
 8. `sch-meet.vercel.app`을 새 도메인으로 리다이렉트한다. 이미 공유된 초대 링크가 끊기지 않게 하기 위해서다.

@@ -1,7 +1,7 @@
-# sch-meet — oci-server(ARM64, Ubuntu 24.04) ~/stacks/sch-meet/deploy 용
+# sch-meet — OCI 서버(ARM64, Ubuntu 24.04) 용
 # 사용: cd deploy && docker compose up -d --build   (절차: deploy/README.md)
 # 공개는 edge 스택의 cloudflared 터널로만. 호스트 포트 publish 없음
-#   sch-meet.kimhands.com → http://sch-meet-web:8080
+#   <PUBLIC_HOST> → http://sch-meet-web:8080
 #  - deploy/.env : 비밀값 — 서버에서만 만든다, 커밋 금지
 name: sch-meet
 
@@ -43,8 +43,8 @@ services:
       DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:?DJANGO_SECRET_KEY 필요}
       DJANGO_DEBUG: "False"
       DJANGO_BEHIND_HTTPS_PROXY: "True"
-      DJANGO_ALLOWED_HOSTS: ${PUBLIC_HOST:-sch-meet.kimhands.com}
-      FRONTEND_BASE_URL: https://${PUBLIC_HOST:-sch-meet.kimhands.com}
+      DJANGO_ALLOWED_HOSTS: ${PUBLIC_HOST:?PUBLIC_HOST 필요}
+      FRONTEND_BASE_URL: https://${PUBLIC_HOST:?PUBLIC_HOST 필요}
       # 터널 뒤: X-Forwarded-For 는 클라이언트가 위조할 수 있다 → Cloudflare가 덮어쓰는 헤더로 레이트 리밋
       CLIENT_IP_HEADER: CF-Connecting-IP
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:?GOOGLE_CLIENT_ID 필요}
