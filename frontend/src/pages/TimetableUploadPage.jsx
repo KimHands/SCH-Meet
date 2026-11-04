@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { colors, screenStyle } from '../styles/theme';
 import AppBar from '../components/AppBar';
 import Button from '../components/Button';
@@ -92,6 +92,7 @@ function UrlGuideModal({ onClose }) {
 
 export default function TimetableUploadPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [url, setUrl] = useState('');
   const [urlError, setUrlError] = useState('');
   const [urlOk, setUrlOk] = useState(false);
@@ -149,6 +150,12 @@ export default function TimetableUploadPage() {
         <p style={{ marginTop: 10, fontSize: 13, lineHeight: '19px', color: colors.secondary }}>
           에브리타임 URL을 입력하면<br />자동으로 시간표가 등록됩니다.
         </p>
+
+        {location.state?.needsTimetableForMeeting && (
+          <p role="status" style={{ marginTop: 12, backgroundColor: colors.primaryFixed, borderRadius: 12, padding: '10px 14px', fontSize: 13, lineHeight: '19px', color: colors.onPrimaryFixedVariant }}>
+            모임에 참여했어요. 시간표를 등록해야 모두가 가능한 시간을 정확히 찾을 수 있어요.
+          </p>
+        )}
 
         {/* URL 입력 */}
         <div style={{ marginTop: 18, display: 'flex', alignItems: 'center', gap: 7 }}>

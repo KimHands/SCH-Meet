@@ -49,7 +49,14 @@ def _get_profile_display_name(user):
     return user.username or f'user-{user.id}'
 
 
-def _serialize_meeting_member(member):
+def _user_ids_with_schedule(user_ids):
+    """시간표나 고정 일정을 등록한 사용자. 확정 모임으로 생긴 항목은 등록으로 치지 않는다."""
+    with_classes = TimetableClass.objects.filter(user_id__in=user_ids).exclude(source='meeting')
+    with_fixed = FixedSchedule.objects.filter(user_id__in=user_ids)
+    return set(with_classes.values_list('user_id', flat=True)) | set(with_fixed.values_list('user_id', flat=True))
+
+
+def _serialize_meeting_member(member, scheduled_user_ids):
     user = member.user
     profile = getattr(user, 'profile', None)
     return {
@@ -58,6 +65,7 @@ def _serialize_meeting_member(member):
         'profile_image_url': getattr(profile, 'profile_image_url', ''),
         'role': member.role,
         'is_creator': member.role == 'CREATOR',
+        'has_schedule': user.id in scheduled_user_ids,
     }
 
 
@@ -110,7 +118,8 @@ def _active_invite_link(meeting, request):
 
 def _serialize_meeting_detail(meeting, membership, request):
     members = list(meeting.members.select_related('user', 'user__profile').all())
-    member_list = [_serialize_meeting_member(member) for member in members]
+    scheduled_user_ids = _user_ids_with_schedule([member.user_id for member in members])
+    member_list = [_serialize_meeting_member(member, scheduled_user_ids) for member in members]
     return {
         'meeting_id': meeting.id,
         'id': meeting.id,
@@ -321,12 +330,20 @@ def _location_reasons(meeting, members):
     return reasons
 
 
-def _build_rule_based_reasons(meeting, members, day_code, start_minute, slot_length):
+def _common_slot_reason(member_count, scheduled_count):
+    if scheduled_count == 0:
+        return '시간표를 등록한 참여자가 없어 정확하지 않아요'
+    if scheduled_count < member_count:
+        return f'시간표를 등록한 {scheduled_count}명 모두 가능한 공통 공강'
+    return f'{member_count}명 모두 가능한 공통 공강'
+
+
+def _build_rule_based_reasons(meeting, members, scheduled_count, day_code, start_minute, slot_length):
     member_count = len(members)
     preference_matches = _does_slot_match_requested_time(day_code, start_minute, meeting)
     location_reasons = _location_reasons(meeting, members)
 
-    reason_bullets = [f'{member_count}명 모두 가능한 공통 공강']
+    reason_bullets = [_common_slot_reason(member_count, scheduled_count)]
     if slot_length - meeting.duration_minutes >= 60:
         reason_bullets.append('앞뒤로 여유 시간이 있어 길어져도 괜찮음')
     else:
@@ -356,6 +373,7 @@ def _build_recommendation_candidates(meeting, members, common_free_slots=None):
     if common_free_slots is None:
         common_free_slots = _compute_common_free_slots(members)
     duration = meeting.duration_minutes
+    scheduled_count = len(_user_ids_with_schedule([member.user_id for member in members]))
     candidates = []
 
     for day_code in DAY_CODES:
@@ -365,7 +383,9 @@ def _build_recommendation_candidates(meeting, members, common_free_slots=None):
                 continue
 
             start_minute = _best_start_in_slot(meeting, day_code, slot_start, slot_end)
-            reason_bullets, score = _build_rule_based_reasons(meeting, members, day_code, start_minute, slot_length)
+            reason_bullets, score = _build_rule_based_reasons(
+                meeting, members, scheduled_count, day_code, start_minute, slot_length,
+            )
             candidates.append(
                 {
                     'day': day_code,
@@ -780,6 +800,11 @@ def meeting_invite_detail(request, token):
     return JsonResponse(response, status=200)
 
 
+def _join_response(detail, user):
+    has_schedule = user.id in _user_ids_with_schedule([user.id])
+    return JsonResponse({'detail': detail, 'has_schedule': has_schedule}, status=200)
+
+
 def _get_valid_invite(token):
     invite = InviteToken.objects.filter(token=token, is_active=True).select_related('meeting', 'meeting__creator').first()
     if not invite or (invite.expires_at and invite.expires_at < timezone.now()):
@@ -811,7 +836,7 @@ def meeting_invite_join(request, token):
     with transaction.atomic():
         meeting = Meeting.objects.select_for_update().get(id=invite.meeting_id)
         if MeetingMember.objects.filter(meeting=meeting, user=user).exists():
-            return JsonResponse({'detail': 'Already joined'}, status=200)
+            return _join_response('Already joined', user)
         if meeting.status != 'OPEN':
             return JsonResponse({'detail': '이미 일정이 확정된 모임이에요.'}, status=409)
         if MeetingMember.objects.filter(meeting=meeting).count() >= meeting.capacity:
@@ -822,7 +847,7 @@ def meeting_invite_join(request, token):
                 MeetingMember.objects.create(meeting=meeting, user=user, role='MEMBER', **preferences)
         except IntegrityError:
             if MeetingMember.objects.filter(meeting=meeting, user=user).exists():
-                return JsonResponse({'detail': 'Already joined'}, status=200)
+                return _join_response('Already joined', user)
             raise
 
         _create_notification(
@@ -833,7 +858,16 @@ def meeting_invite_join(request, token):
             related_meeting=meeting,
         )
 
-    return JsonResponse({'detail': 'Joined successfully'}, status=200)
+    return _join_response('Joined successfully', user)
+
+
+def _names_without_schedule(members):
+    scheduled_user_ids = _user_ids_with_schedule([member.user_id for member in members])
+    return [
+        _get_profile_display_name(member.user)
+        for member in members
+        if member.user_id not in scheduled_user_ids
+    ]
 
 
 @csrf_exempt
@@ -879,6 +913,7 @@ def meeting_recommendations(request, meeting_id):
             'meeting_name': meeting.name,
             'can_recommend': True,
             'participant_count': len(members),
+            'members_without_schedule': _names_without_schedule(members),
             'recommendations': recommendations,
         },
         status=200,

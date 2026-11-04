@@ -149,6 +149,17 @@ export default function AiResultPage() {
           </p>
         )}
 
+        {data.members_without_schedule?.length > 0 && (
+          <div role="status" style={{ marginTop: 10, backgroundColor: colors.errorContainer, borderRadius: 12, padding: '10px 14px' }}>
+            <p style={{ fontSize: 13, fontWeight: '600', color: colors.onErrorContainer }}>
+              {data.members_without_schedule.join(', ')}님의 시간표가 없어요
+            </p>
+            <p style={{ marginTop: 3, fontSize: 12, lineHeight: '17px', color: colors.onErrorContainer }}>
+              이 참여자는 항상 가능한 것으로 계산되어 실제로는 안 맞을 수 있어요. 등록을 부탁한 뒤 확정하는 게 좋아요.
+            </p>
+          </div>
+        )}
+
         {confirmError && (
           <p role="alert" style={{ marginTop: 8, fontSize: 12, color: colors.error }}>{confirmError}</p>
         )}

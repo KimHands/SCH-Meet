@@ -59,6 +59,11 @@ function MemberRow({ member, isMe, borderBottom }) {
       <span style={{ flex: 1, fontSize: 13, fontWeight: '500', color: colors.onSurface }}>
         {member.nickname}{isMe ? ' (나)' : ''}
       </span>
+      {!member.has_schedule && (
+        <span style={{ fontSize: 11, fontWeight: '500', color: colors.onErrorContainer, backgroundColor: colors.errorContainer, padding: '3px 8px', borderRadius: 99 }}>
+          시간표 미등록
+        </span>
+      )}
       {member.is_creator && <CreatorBadge />}
     </li>
   );

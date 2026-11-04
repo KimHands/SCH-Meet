@@ -71,23 +71,23 @@ export default function InvitePage() {
     navigate('/login');
   };
 
-  const validate = () => {
-    const newErrors = time.trim() ? {} : { time: '희망 시간을 입력해주세요.' };
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
   const handleSubmit = async () => {
     if (!isLoggedIn) { goToLogin(); return; }
-    if (!validate()) return;
 
     setSubmitting(true);
+    setErrors({});
     try {
-      await joinMeeting(inviteToken, {
+      const joined = await joinMeeting(inviteToken, {
         desired_time: time.trim(),
         desired_location: place.trim(),
       });
-      navigate(`/meetings/${meetingInfo.meeting_id}`);
+      const meetingPath = `/meetings/${meetingInfo.meeting_id}`;
+      if (joined?.has_schedule === false) {
+        saveRedirectPath(meetingPath);
+        navigate('/upload-timetable', { state: { needsTimetableForMeeting: true } });
+        return;
+      }
+      navigate(meetingPath);
     } catch (e) {
       setErrors({ submit: e.message });
       setSubmitting(false);
@@ -136,27 +136,21 @@ export default function InvitePage() {
           <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', gap: 18 }}>
             <p style={{ fontSize: 13, lineHeight: '19px', color: colors.secondary }}>
               {isLoggedIn
-                ? <>모임에 참여하기 전에<br />희망 시간과 장소를 알려주세요.</>
+                ? <>희망 시간과 장소가 있으면 알려주세요.<br />비워 두어도 참여할 수 있어요.</>
                 : <>로그인하면 이 모임에 참여할 수 있어요.<br />로그인 후 이 화면으로 다시 돌아와요.</>}
             </p>
 
             {isLoggedIn && (
               <>
                 <div>
-                  <label htmlFor="invite-time" style={fieldLabelStyle}>
-                    희망 시간 <span aria-hidden="true" style={{ color: colors.error }}>*</span>
-                  </label>
+                  <label htmlFor="invite-time" style={fieldLabelStyle}>희망 시간</label>
                   <input
                     id="invite-time"
                     value={time}
                     onChange={(e) => setTime(e.target.value)}
                     placeholder="예) 오후 8시, 주중 저녁 등"
-                    required
-                    aria-invalid={!!errors.time}
-                    aria-describedby={errors.time ? 'invite-time-error' : undefined}
-                    style={inputStyle(!!errors.time)}
+                    style={inputStyle()}
                   />
-                  {errors.time && <p id="invite-time-error" style={{ marginTop: 4, fontSize: 12, color: colors.error }}>{errors.time}</p>}
                 </div>
 
                 <div>
