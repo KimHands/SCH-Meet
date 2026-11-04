@@ -21,7 +21,7 @@
 </div>
 
 > [!NOTE]
-> 백엔드는 Render 무료 플랜(https://schmeet-api.onrender.com)에서 동작하므로, 첫 요청 때 서버가 깨어나는 데 최대 1분이 걸릴 수 있습니다.
+> 프론트엔드와 백엔드를 OCI 서버 한 곳으로 옮기는 중입니다. 전환이 끝날 때까지 서비스는 Vercel과 Render에서 동작하며, Render 무료 플랜 특성상 첫 요청 때 서버가 깨어나는 데 최대 1분이 걸릴 수 있습니다.
 
 ---
 
@@ -112,14 +112,25 @@
 
 ```mermaid
 flowchart LR
-    Browser[브라우저] -- HTTPS --> Vercel["Frontend<br/>React + Vite (Vercel)"]
-    Browser -- "REST API · JWT" --> API["Backend<br/>Django (Render)"]
-    API --> DB[("PostgreSQL<br/>(Render)")]
+    Browser[브라우저] -- HTTPS --> Tunnel[Cloudflare 터널]
+    subgraph Server["OCI 서버 (Docker Compose)"]
+        Web["web (Caddy)<br/>React 정적 파일"]
+        API["api (gunicorn)<br/>Django"]
+        DB[("db<br/>PostgreSQL 16")]
+        Backup["backup<br/>일일 pg_dump"]
+    end
+    Tunnel --> Web
+    Web -- "/api/*" --> API
+    API --> DB
+    Backup --> DB
+    Backup --> R2[[Cloudflare R2]]
     API --> Google[[Google OAuth]]
     API --> Everytime[[에브리타임 시간표]]
 ```
 
-`render.yaml`은 Render 블루프린트이고, `deploy/`에는 프론트·API·DB를 한 서버에 올리는 OCI용 Compose 구성이 있습니다.
+위 그림은 전환 후 구성입니다. 공개는 Cloudflare 터널로만 하고 호스트 포트는 열지 않습니다. 구성과 전환 절차는 [`deploy/README.md`](deploy/README.md)에 있습니다.
+
+전환 전까지는 프론트엔드가 Vercel, 백엔드와 PostgreSQL이 Render(`render.yaml`)에서 동작합니다.
 
 ---
 
@@ -131,7 +142,8 @@ flowchart LR
 | Backend | Django 6.0 · Python 3.12 · django-cors-headers |
 | 인증 | Google 로그인(google-auth) · JWT(PyJWT) |
 | 데이터 | SQLite(로컬) · PostgreSQL(배포) |
-| 배포 | Vercel(Frontend) · Render(Backend + PostgreSQL) |
+| 배포 | Docker Compose · Caddy · gunicorn · Cloudflare 터널(OCI 서버, 전환 중) / Vercel · Render(현재 운영) |
+| 백업 | pg_dump → Cloudflare R2 |
 | CI | GitHub Actions(테스트 · 빌드 · `pip-audit` · `npm audit`) |
 
 ---
@@ -254,7 +266,7 @@ sch-meet/
 │   ├── apps/api/          API 앱(endpoints/, tests/)
 │   ├── requirements.txt
 │   └── build.sh           Render 빌드 스크립트
-├── deploy/                OCI용 Compose 구성
+├── deploy/                OCI 서버용 Compose 구성 · 백업 · 전환 절차
 ├── docs/                  기획 · 명세 · 배포 문서, 스크린샷
 ├── .github/workflows/     CI
 └── render.yaml            Render 블루프린트
@@ -278,8 +290,8 @@ sch-meet/
 |------|------|
 | [`docs/01_기획서.pdf`](docs/01_기획서.pdf) | 기획서 |
 | [`docs/02_기능명세서.md`](docs/02_기능명세서.md) | 기능 명세 |
-| [`docs/deploy/DEPLOY.md`](docs/deploy/DEPLOY.md) | Vercel · Render 배포 |
-| [`deploy/README.md`](deploy/README.md) | OCI 서버 배포 |
+| [`deploy/README.md`](deploy/README.md) | OCI 서버 배포 · 전환 절차 |
+| [`docs/deploy/DEPLOY.md`](docs/deploy/DEPLOY.md) | Vercel · Render 배포(전환 전 운영) |
 
 ---
 
@@ -289,7 +301,7 @@ sch-meet/
 |--------|------|------|
 | [@asohee48](https://github.com/asohee48) | Frontend | 전체 화면 UI, 온보딩·마이페이지, 백엔드 API 연동 |
 | [@Asnko](https://github.com/Asnko) | Backend | Django 초기 설정, Google 로그인, 에브리타임 시간표 파싱·고정 일정, 모임·초대, 추천 알고리즘, 대시보드·알림 |
-| [@KimHands](https://github.com/KimHands) | 프로젝트 총괄 | Vercel·Render 배포, 보안 설정 |
+| [@KimHands](https://github.com/KimHands) | 프로젝트 총괄 | Vercel·Render 배포, OCI 서버 배포 구성, 보안 설정 |
 
 ---
 
