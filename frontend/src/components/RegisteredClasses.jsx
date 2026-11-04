@@ -74,7 +74,7 @@ export default function RegisteredClasses({ classes, loading, loadError, onRetry
             type="button"
             onClick={handleRemoveAll}
             disabled={deletingAll}
-            style={{ fontSize: 12, fontWeight: '500', color: colors.error, padding: '4px 6px', opacity: deletingAll ? 0.5 : 1 }}
+            style={{ minHeight: 44, fontSize: 12, fontWeight: '500', color: colors.error, padding: '4px 6px', opacity: deletingAll ? 0.5 : 1 }}
           >
             {deletingAll ? '삭제 중...' : '전체 삭제'}
           </button>

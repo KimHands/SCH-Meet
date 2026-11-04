@@ -105,6 +105,7 @@ export default function CreateMeetingPage() {
   const [form, setForm] = useState(EMPTY_MEETING_FORM);
   const [original, setOriginal] = useState(null);
   const [loadingMeeting, setLoadingMeeting] = useState(isEdit);
+  const [loadError, setLoadError] = useState('');
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
 
@@ -119,7 +120,7 @@ export default function CreateMeetingPage() {
         setOriginal(meeting);
         setForm(meetingToFormValues(meeting));
       })
-      .catch((e) => setErrors({ submit: e.message }))
+      .catch((e) => setLoadError(e.message || '모임 정보를 불러오지 못했어요.'))
       .finally(() => setLoadingMeeting(false));
   }, [isEdit, meetingId]);
 
@@ -155,6 +156,18 @@ export default function CreateMeetingPage() {
   };
 
   if (loadingMeeting) return <LoadingSpinner />;
+  // 빈 폼을 저장하면 기존 값을 지우게 되므로 불러오기에 실패하면 폼을 열지 않는다
+  if (loadError) {
+    return (
+      <main style={screenStyle}>
+        <AppBar title="모임 수정" />
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, padding: '0 24px' }}>
+          <p role="alert" style={{ fontSize: 14, color: colors.onSurfaceVariant, textAlign: 'center' }}>{loadError}</p>
+          <Button variant="outline" label="돌아가기" onClick={() => navigate(-1)} height={44} fontSize={14} style={{ paddingLeft: 24, paddingRight: 24 }} />
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main style={screenStyle}>

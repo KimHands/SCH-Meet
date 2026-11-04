@@ -1,7 +1,7 @@
 from django.core.cache import cache
 from django.test import TestCase
 
-from api.models import Meeting, MeetingMember, Notification
+from api.models import Meeting, MeetingMember, Notification, UserProfile
 
 from .helpers import auth_header, make_user, post_json
 
@@ -11,6 +11,7 @@ class MeetingManageTest(TestCase):
         cache.clear()
         self.creator = make_user('creator')
         self.member = make_user('member')
+        UserProfile.objects.create(user=self.member, nickname='member')
         created = post_json(self.client, '/api/meetings/', {'name': '팀플', 'capacity': 3}, self.creator).json()
         self.meeting_id = created['meeting_id']
         post_json(self.client, f"/api/meetings/invite/{created['token']}/join/", {}, self.member)
