@@ -14,8 +14,8 @@ from .notifications import notification_read, notifications_collection
 from .schedules import fixed_schedule_detail, fixed_schedules
 from .timetables import (
     consolidated_timetables,
-    timetable_image_confirm,
-    timetable_upload_image,
+    timetable_class_detail,
+    timetable_classes,
     timetable_upload_url,
 )
 from .user import user_me
@@ -25,8 +25,6 @@ __all__ = [
     'auth_refresh',
     'user_me',
     'timetable_upload_url',
-    'timetable_upload_image',
-    'timetable_image_confirm',
     'fixed_schedules',
     'fixed_schedule_detail',
     'consolidated_timetables',
@@ -41,4 +39,6 @@ __all__ = [
     'notifications_collection',
     'notification_read',
     'health_check',
+    'timetable_classes',
+    'timetable_class_detail',
 ]

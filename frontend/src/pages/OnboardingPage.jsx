@@ -11,8 +11,8 @@ const MESSAGES = [
 ];
 
 const FEATURES = [
-  { icon: 'upload_file',  bg: colors.primaryFixed,  fg: colors.primary,          title: '에타 시간표 업로드',   sub: '공강 시간 자동 계산' },
-  { icon: 'event_repeat', bg: colors.primaryFixed,  fg: colors.primary,          title: '고정 일정 추가',       sub: '알바, 동아리 등 반복 일정 관리' },
+  { icon: 'upload_file',  bg: colors.primaryFixed,  fg: colors.primary,          title: '에타 시간표 등록',   sub: '공강 시간 자동 계산' },
+  { icon: 'event_repeat', bg: colors.primaryFixed,  fg: colors.primary,          title: '고정 일정 추가',       sub: '수업, 알바, 동아리 등 반복 일정 관리' },
   { icon: 'auto_awesome', bg: colors.tertiaryFixed, fg: colors.tertiaryContainer, title: 'AI 최적의 시간 추천', sub: '모두가 가능한 시간대 바로 찾기' },
 ];
 
@@ -72,7 +72,7 @@ function Slide2({ onStart, onSkip }) {
       </div>
 
       <h1 style={{ marginTop: 22, fontSize: 24, fontWeight: '700', lineHeight: '32px', letterSpacing: '-0.24px', color: colors.onSurface }}>
-        에타 시간표 업로드 +<br />고정 일정 추가
+        에타 시간표 등록 +<br />고정 일정 추가
       </h1>
 
       {/* 히어로 */}

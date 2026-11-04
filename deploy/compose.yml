@@ -48,7 +48,6 @@ services:
       # 터널 뒤: X-Forwarded-For 는 클라이언트가 위조할 수 있다 → Cloudflare가 덮어쓰는 헤더로 레이트 리밋
       CLIENT_IP_HEADER: CF-Connecting-IP
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:?GOOGLE_CLIENT_ID 필요}
-      OCR_SPACE_API_KEY: ${OCR_SPACE_API_KEY:?OCR_SPACE_API_KEY 필요}
     depends_on:
       db:
         condition: service_healthy
