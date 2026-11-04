@@ -5,6 +5,7 @@ import AppBar from '../components/AppBar';
 import Button from '../components/Button';
 import Icon from '../components/Icon';
 import Toast from '../components/Toast';
+import NicknamePrompt from '../components/NicknamePrompt';
 import RegisteredClasses from '../components/RegisteredClasses';
 import { useToast } from '../hooks/useToast';
 import { useTimetableClasses } from '../hooks/useTimetableClasses';
@@ -93,6 +94,7 @@ function UrlGuideModal({ onClose }) {
 export default function TimetableUploadPage() {
   const navigate = useNavigate();
   const location = useLocation();
+  const isManaging = !!location.state?.manage;
   const [url, setUrl] = useState('');
   const [urlError, setUrlError] = useState('');
   const [urlOk, setUrlOk] = useState(false);
@@ -145,11 +147,15 @@ export default function TimetableUploadPage() {
       <div style={{ flex: 1, overflowY: 'auto', padding: '8px 20px 16px' }}>
 
         <h1 style={{ marginTop: 6, fontSize: 22, fontWeight: '700', lineHeight: '30px', letterSpacing: '-0.22px', color: colors.onSurface }}>
-          에브리타임 시간표를<br />등록해주세요
+          {isManaging ? '시간표 관리' : <>에브리타임 시간표를<br />등록해주세요</>}
         </h1>
         <p style={{ marginTop: 10, fontSize: 13, lineHeight: '19px', color: colors.secondary }}>
-          에브리타임 URL을 입력하면<br />자동으로 시간표가 등록됩니다.
+          {isManaging
+            ? <>URL을 다시 입력하면 에브리타임 시간표로 교체돼요.<br />잘못된 수업은 아래에서 지울 수 있어요.</>
+            : <>에브리타임 URL을 입력하면<br />자동으로 시간표가 등록됩니다.</>}
         </p>
+
+        <NicknamePrompt onError={showToast} />
 
         {location.state?.needsTimetableForMeeting && (
           <p role="status" style={{ marginTop: 12, backgroundColor: colors.primaryFixed, borderRadius: 12, padding: '10px 14px', fontSize: 13, lineHeight: '19px', color: colors.onPrimaryFixedVariant }}>
@@ -218,7 +224,7 @@ export default function TimetableUploadPage() {
             <Icon name="tips_and_updates" size={16} color={colors.tertiaryContainer} />
             <span style={{ fontSize: 12, fontWeight: '500', color: colors.secondary }}>TIP</span>
           </div>
-          <Button variant="outline" label="URL 찾는 방법" height={32} fontSize={12} style={{ paddingLeft: 14, paddingRight: 14 }} onClick={() => setShowGuide(true)} />
+          <Button variant="outline" label="URL 찾는 방법" height={44} fontSize={12} style={{ paddingLeft: 14, paddingRight: 14 }} onClick={() => setShowGuide(true)} />
         </div>
 
         <RegisteredClasses
@@ -234,8 +240,14 @@ export default function TimetableUploadPage() {
       </div>
 
       <div style={{ display: 'flex', gap: 10, padding: '14px 20px 18px' }}>
-        <Button variant="outline" label="이전" onClick={() => navigate(-1)} height={52} fontSize={15} style={{ flex: 1 }} />
-        <Button label="다음" onClick={handleNext} height={52} fontSize={15} style={{ flex: 1.6 }} />
+        {isManaging ? (
+          <Button label="완료" onClick={() => navigate(-1)} height={52} fontSize={15} style={{ flex: 1 }} />
+        ) : (
+          <>
+            <Button variant="outline" label="이전" onClick={() => navigate(-1)} height={52} fontSize={15} style={{ flex: 1 }} />
+            <Button label="다음" onClick={handleNext} height={52} fontSize={15} style={{ flex: 1.6 }} />
+          </>
+        )}
       </div>
 
     </main>

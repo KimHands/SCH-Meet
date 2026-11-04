@@ -1,4 +1,4 @@
-const CONTACT = 'https://github.com/KimHands/SCH-Meet/issues';
+const CONTACT = 'https://github.com/KimHands/sch-meet/issues';
 
 export const LEGAL_DOCUMENTS = {
   terms: {

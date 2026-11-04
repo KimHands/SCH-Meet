@@ -46,7 +46,7 @@ def _get_profile_display_name(user):
     profile = getattr(user, 'profile', None)
     if profile and getattr(profile, 'nickname', ''):
         return profile.nickname
-    return user.username or f'user-{user.id}'
+    return f'참여자 {user.id}'  # username은 이메일 앞부분이라 다른 사람에게 보이면 안 된다
 
 
 def _next_occurrence(day_code, start_minute):
@@ -110,7 +110,7 @@ def _serialize_meeting_member(member, scheduled_user_ids):
     profile = getattr(user, 'profile', None)
     return {
         'user_id': user.id,
-        'nickname': getattr(profile, 'nickname', '') or user.username,
+        'nickname': _get_profile_display_name(user),
         'profile_image_url': getattr(profile, 'profile_image_url', ''),
         'role': member.role,
         'is_creator': member.role == 'CREATOR',
@@ -315,8 +315,12 @@ def _contains_any(text, values):
     return any(value.lower() in lowered for value in values)
 
 
-def _does_slot_match_requested_time(day_code, start_minute, meeting):
-    requested_time = (meeting.desired_time or '').strip()
+def _requested_time_text(meeting, members):
+    wishes = [meeting.desired_time, *(member.desired_time for member in members)]
+    return ' '.join(wish.strip() for wish in wishes if wish and wish.strip())
+
+
+def _does_slot_match_requested_time(day_code, start_minute, requested_time):
     if not requested_time:
         return []
 
@@ -394,7 +398,7 @@ def _common_slot_reason(member_count, scheduled_count):
 
 def _build_rule_based_reasons(meeting, members, scheduled_count, day_code, start_minute, slot_length):
     member_count = len(members)
-    preference_matches = _does_slot_match_requested_time(day_code, start_minute, meeting)
+    preference_matches = _does_slot_match_requested_time(day_code, start_minute, _requested_time_text(meeting, members))
     location_reasons = _location_reasons(meeting, members)
 
     reason_bullets = [_common_slot_reason(member_count, scheduled_count)]
@@ -416,11 +420,11 @@ def _build_rule_based_reasons(meeting, members, scheduled_count, day_code, start
     return reason_bullets[:4], score
 
 
-def _best_start_in_slot(meeting, day_code, slot_start, slot_end):
+def _best_start_in_slot(meeting, requested_time, day_code, slot_start, slot_end):
     """희망 시간대와 가장 많이 맞는 시작 시각(동점이면 이른 시각)을 고른다."""
     latest_start = slot_end - meeting.duration_minutes
     starts = range(slot_start, latest_start + 1, CANDIDATE_START_STEP)
-    return max(starts, key=lambda start: (len(_does_slot_match_requested_time(day_code, start, meeting)), -start))
+    return max(starts, key=lambda start: (len(_does_slot_match_requested_time(day_code, start, requested_time)), -start))
 
 
 def _build_recommendation_candidates(meeting, members, common_free_slots=None):
@@ -428,6 +432,7 @@ def _build_recommendation_candidates(meeting, members, common_free_slots=None):
         common_free_slots = _compute_common_free_slots(members)
     duration = meeting.duration_minutes
     scheduled_count = len(_user_ids_with_schedule([member.user_id for member in members]))
+    requested_time = _requested_time_text(meeting, members)
     candidates = []
 
     for day_code in DAY_CODES:
@@ -436,7 +441,7 @@ def _build_recommendation_candidates(meeting, members, common_free_slots=None):
             if slot_length < duration:
                 continue
 
-            start_minute = _best_start_in_slot(meeting, day_code, slot_start, slot_end)
+            start_minute = _best_start_in_slot(meeting, requested_time, day_code, slot_start, slot_end)
             reason_bullets, score = _build_rule_based_reasons(
                 meeting, members, scheduled_count, day_code, start_minute, slot_length,
             )
@@ -474,7 +479,7 @@ def _serialize_confirmed_meeting(meeting):
         confirmed_members.append(
             {
                 'user_id': member.user.id,
-                'nickname': getattr(profile, 'nickname', '') or member.user.username,
+                'nickname': _get_profile_display_name(member.user),
                 'profile_image_url': getattr(profile, 'profile_image_url', ''),
                 'role': member.role,
             }

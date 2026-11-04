@@ -20,7 +20,7 @@ function Slide1({ onNext, onSkip }) {
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '6px 24px 0' }}>
       <div style={{ textAlign: 'right' }}>
-        <button type="button" onClick={onSkip} style={{ fontSize: 14, fontWeight: '500', color: colors.outline, padding: 4 }}>
+        <button type="button" onClick={onSkip} style={{ fontSize: 14, fontWeight: '500', color: colors.outline, padding: 4, minHeight: 44, minWidth: 44 }}>
           건너뛰기
         </button>
       </div>
@@ -66,7 +66,7 @@ function Slide2({ onStart, onSkip }) {
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '6px 24px 0' }}>
       <div style={{ textAlign: 'right' }}>
-        <button type="button" onClick={onSkip} style={{ fontSize: 14, fontWeight: '500', color: colors.outline, padding: 4 }}>
+        <button type="button" onClick={onSkip} style={{ fontSize: 14, fontWeight: '500', color: colors.outline, padding: 4, minHeight: 44, minWidth: 44 }}>
           건너뛰기
         </button>
       </div>
