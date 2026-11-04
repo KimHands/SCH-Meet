@@ -13,7 +13,7 @@
 ## Global Constraints
 
 - 브랜치: `feature/oci-deploy`. 머지, 실제 배포, 터널 추가, DB 이전은 하지 않는다.
-- 공개 호스트 기본값 `sch-meet.kimhands.com`, 터널 대상 별칭·포트 `sch-meet-web:8080`, `api` 포트 8000
+- 공개 호스트 `PUBLIC_HOST`(예: `sch-meet.example.com`), 터널 대상 별칭·포트 `sch-meet-web:8080`, `api` 포트 8000
 - DB 사용자·이름 `schmeet`, 이미지 `postgres:16-alpine`
 - gunicorn `--workers 1 --threads 4`
 - 컨테이너 시작 시 `migrate`를 실행하지 않는다.
@@ -21,7 +21,6 @@
 - 비밀값은 저장소·이미지·채팅에 넣지 않는다.
 - 새 환경변수의 기본값은 기존 Render 동작을 유지해야 한다.
 - 테스트 명령 공통: `cd server && DJANGO_SECRET_KEY=test .venv/bin/python manage.py test <라벨>`
-- 커밋 메시지는 `git add` 후 `gitmsg`로 초안을 만들고, 끝에 `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`을 붙인다.
 
 ## Review Focus
 
@@ -316,6 +315,6 @@ compose exec web id -u                                                          
 
 - [ ] **Step 3: 커밋**
 
-- [ ] **Step 4: 리뷰** — `/code-review`를 실행한 뒤 Codex 리뷰를 받는다(`~/Ops/domains/review.md` 절차). 지적 사항을 검증해 반영한다.
+- [ ] **Step 4: 리뷰** — `/code-review`를 실행한 뒤 Codex 리뷰를 받는다. 지적 사항을 검증해 반영한다.
 
 - [ ] **Step 5: 사용자 보고** — 결과와 로컬에서 확인하지 못한 항목(실제 Cloudflare 헤더, Google 로그인, OCR, R2)을 보고한다. 푸시와 PR 생성은 사용자 확인 후 진행한다.
