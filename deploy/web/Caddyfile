@@ -24,14 +24,16 @@
 	header -Server
 
 	handle /api/* {
-		reverse_proxy api:8000
+		# 공유 edge 네트워크에서 다른 앱의 api로 해석되지 않도록 고유 별칭을 쓴다
+		reverse_proxy sch-meet-api:8000
 	}
 
 	# try_files를 두지 않는다. 사라진 파일에 index.html이 영구 캐시되면 안 된다
 	handle /assets/* {
 		import static_headers
 		root * /srv
-		header Cache-Control "public, max-age=31536000, immutable"
+		@existing file
+		header @existing Cache-Control "public, max-age=31536000, immutable"
 		file_server
 	}
 

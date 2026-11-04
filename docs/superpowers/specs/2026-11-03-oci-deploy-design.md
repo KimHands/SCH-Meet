@@ -59,12 +59,12 @@ Cloudflare 터널 → web(Caddy) ─┬ /api/* → api(gunicorn) → db(Postgres
 
 - `admin off`, `auto_https off`, `:8080` 수신. TLS는 Cloudflare 엣지에서 끝난다.
 - `servers { trusted_proxies static private_ranges }`: cloudflared가 넘긴 `X-Forwarded-Proto`를 보존한다. 이 설정이 없으면 Caddy가 값을 `http`로 덮어써 Django가 HTTPS 요청을 무한 리다이렉트한다.
-- `/api/*`: `reverse_proxy api:8000`. `CF-Connecting-IP` 등 요청 헤더는 그대로 전달된다.
+- `/api/*`: `reverse_proxy sch-meet-api:8000`. `CF-Connecting-IP` 등 요청 헤더는 그대로 전달된다. `web`은 공유 `edge`에도 붙어 있어 `api`라는 이름은 다른 앱(toeic 등)으로 해석될 수 있으므로 쓰지 않는다.
 - 그 외: `try_files {path} /index.html` 후 `file_server`
 - `frontend/vercel.json`에서 옮길 응답 헤더:
   - `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`
   - CSP. `connect-src`는 `'self' https://accounts.google.com/gsi/`로 바꾸고 Render 주소를 뺀다. 나머지 지시어는 그대로 둔다.
-- `/assets/*`: `Cache-Control: public, max-age=31536000, immutable`
+- `/assets/*`: 실제 파일에만 `Cache-Control: public, max-age=31536000, immutable`. 없는 파일은 캐시 헤더 없는 404
 - `index.html`: `Cache-Control: no-cache`
 - HSTS: 1년, `includeSubDomains` 없음. Vercel이 자동으로 주던 것을 정적 응답에도 유지한다. `/api/*` 응답에서 Django와 중복되지 않게 정적 경로에만 붙인다.
 - `-Server` 헤더 제거, zstd·gzip 압축
@@ -73,7 +73,8 @@ Cloudflare 터널 → web(Caddy) ─┬ /api/* → api(gunicorn) → db(Postgres
 
 - 프로젝트 이름 `sch-meet`, 로그 `json-file` 10MB × 3개, `restart: unless-stopped`
 - 외부 네트워크 `edge`, 내부 네트워크 `backend`
-- `api`는 `db`가 healthy일 때 시작하고, `web`은 `api`가 healthy일 때 시작한다.
+- `api`는 `db`가 healthy일 때 시작한다. `web`은 `api`가 unhealthy여도 정적 화면을 제공해야 하므로 `api` 시작만 기다린다.
+- `api`의 `backend` 별칭은 `sch-meet-api`다.
 - 필수 환경변수는 `${VAR:?메시지}`로 비어 있으면 기동을 막는다.
 
 `api` 고정 환경변수:
@@ -90,7 +91,7 @@ Cloudflare 터널 → web(Caddy) ─┬ /api/* → api(gunicorn) → db(Postgres
 
 ### `deploy/.env.example`
 
-`PUBLIC_HOST`(기본값 `sch-meet.kimhands.com`), `POSTGRES_PASSWORD`, `DJANGO_SECRET_KEY`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `VITE_GOOGLE_CLIENT_ID`, `OCR_SPACE_API_KEY`, `BACKUP_R2_BUCKET`, `BACKUP_R2_ENDPOINT`, `BACKUP_R2_ACCESS_KEY_ID`, `BACKUP_R2_SECRET_ACCESS_KEY`. 값은 서버의 `deploy/.env`(chmod 600)에만 둔다.
+`PUBLIC_HOST`(기본값 `sch-meet.kimhands.com`), `POSTGRES_PASSWORD`, `DJANGO_SECRET_KEY`, `GOOGLE_CLIENT_ID`(웹 빌드 인자 `VITE_GOOGLE_CLIENT_ID`로도 쓰임), `OCR_SPACE_API_KEY`, `BACKUP_R2_BUCKET`, `BACKUP_R2_ENDPOINT`, `BACKUP_R2_ACCESS_KEY_ID`, `BACKUP_R2_SECRET_ACCESS_KEY`. 값은 서버의 `deploy/.env`(chmod 600)에만 둔다.
 
 ### `deploy/backup/`
 
@@ -110,16 +111,17 @@ toeic 레포의 `deploy/backup`(`Dockerfile`, `backup.sh`, `entrypoint.sh`, `res
 
 ### `server/config/settings.py`
 
-1. **DB SSL:** `ssl_require=True` 고정을 `ssl_require=_env_flag('DATABASE_SSL_REQUIRE', 'True')`로 바꾼다. 기본값이 `True`이므로 Render는 그대로다. `postgres:16-alpine` 기본 구성은 SSL을 쓰지 않으므로 Compose에서만 `False`로 둔다. DB는 내부 네트워크에만 있다.
+1. **DB SSL:** `ssl_require=True` 고정을 `DATABASE_SSL_REQUIRE`로 조절하게 바꾼다. 명시적인 false류 값일 때만 끄고, 없거나 빈 값이나 오타는 `True`로 둔다. Render는 그대로다. `postgres:16-alpine` 기본 구성은 SSL을 쓰지 않으므로 Compose에서만 `False`로 둔다. DB는 내부 네트워크에만 있다.
 2. **HTTPS 설정:** `if _env_flag('RENDER'):` 조건을 `if _env_flag('RENDER') or _env_flag('DJANGO_BEHIND_HTTPS_PROXY'):`로 바꾼다.
 3. **헬스체크 예외:** 같은 블록에 `SECURE_REDIRECT_EXEMPT = [r'^api/health/$']`를 추가한다.
 4. **클라이언트 IP:** `CLIENT_IP_HEADER = os.environ.get('CLIENT_IP_HEADER', '')`를 추가한다. `TRUSTED_PROXY_COUNT`는 그대로 둔다.
+5. **로그:** `DEBUG=False`에서도 ERROR 로그를 stderr로 내보낸다. Django 기본 설정은 운영에서 오류를 콘솔에 남기지 않는다. 초대 토큰이 경로에 있으므로 액세스 로그는 켜지 않는다.
 
 ### `server/apps/api/endpoints/throttle.py`
 
-`client_ip()`는 `CLIENT_IP_HEADER`가 설정돼 있고 요청에 그 헤더가 있으면 그 값을 쓴다. 설정이 없거나 헤더가 없으면 기존 `X-Forwarded-For`·`REMOTE_ADDR` 처리로 넘어간다. 헤더 이름은 `HTTP_` + 대문자 + 밑줄 형식의 `META` 키로 변환한다.
+`client_ip()`는 `CLIENT_IP_HEADER`가 설정돼 있고 요청에 유효한 IP 값이 있으면 그 값을 쓴다. 설정이 없거나 헤더가 없거나 IP가 아니면 기존 `X-Forwarded-For`·`REMOTE_ADDR` 처리로 넘어간다. 헤더 이름은 `HTTP_` + 대문자 + 밑줄 형식의 `META` 키로 변환한다.
 
-이 헤더를 믿을 수 있는 이유는 `web`이 터널로만 공개되어 요청이 항상 Cloudflare를 거치기 때문이다. Cloudflare는 클라이언트가 보낸 값을 덮어쓴다.
+인터넷에서 오는 요청은 터널로만 들어와 Cloudflare를 거치고, Cloudflare는 클라이언트가 보낸 값을 덮어쓴다. 다만 공유 `edge` 네트워크의 다른 컨테이너는 `web`을 직접 호출할 수 있어 이 헤더를 위조할 수 있다. 이웃 컨테이너 침해를 전제로 하는 레이트리밋 우회이므로 위험을 수용하고 `deploy/README.md`에 기록한다.
 
 ### 헬스체크 엔드포인트
 

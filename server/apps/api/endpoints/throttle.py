@@ -1,3 +1,5 @@
+import ipaddress
+
 from django.conf import settings
 from django.core.cache import cache
 from django.http import JsonResponse
@@ -17,7 +19,12 @@ def _client_ip_from_header(request):
     if not header_name:
         return ''
     meta_key = 'HTTP_' + header_name.upper().replace('-', '_')
-    return request.META.get(meta_key, '').strip()
+    header_value = request.META.get(meta_key, '').strip()
+    try:
+        ipaddress.ip_address(header_value)
+    except ValueError:
+        return ''
+    return header_value
 
 
 def client_ip(request):

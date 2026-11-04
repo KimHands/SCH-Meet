@@ -45,6 +45,11 @@ def _env_flag(name, default='False'):
     return os.environ.get(name, default).lower() in ('1', 'true', 'yes', 'on')
 
 
+def _database_ssl_required():
+    """명시적으로 끈 경우만 False다. 빈 값이나 오타로 SSL이 꺼지면 안 된다."""
+    return os.environ.get('DATABASE_SSL_REQUIRE', '').strip().lower() not in ('0', 'false', 'no', 'off')
+
+
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = _env_flag('DJANGO_DEBUG')
 
@@ -121,7 +126,7 @@ if _database_url:
     import dj_database_url
 
     DATABASES['default'] = dj_database_url.parse(
-        _database_url, conn_max_age=600, ssl_require=_env_flag('DATABASE_SSL_REQUIRE', 'True')
+        _database_url, conn_max_age=600, ssl_require=_database_ssl_required()
     )
 
 
@@ -206,6 +211,16 @@ OCR_SPACE_API_KEY = os.environ.get('OCR_SPACE_API_KEY', '')
 TRUSTED_PROXY_COUNT = int(os.environ.get('TRUSTED_PROXY_COUNT', '1' if _env_flag('RENDER') else '0'))
 # 프록시가 클라이언트 값을 덮어쓰는 헤더(예: CF-Connecting-IP)가 있으면 X-Forwarded-For보다 우선한다.
 CLIENT_IP_HEADER = os.environ.get('CLIENT_IP_HEADER', '')
+
+# Django 기본 설정은 DEBUG=False에서 오류를 콘솔로 내보내지 않는다. 컨테이너 로그로 남긴다.
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'stderr': {'class': 'logging.StreamHandler', 'level': 'ERROR'},
+    },
+    'root': {'handlers': ['stderr']},
+}
 
 # 운영(HTTPS) 보안 설정 — Render는 RENDER=true를 자동 주입하고, 그 외 환경은 DJANGO_BEHIND_HTTPS_PROXY로 켠다.
 if _env_flag('RENDER') or _env_flag('DJANGO_BEHIND_HTTPS_PROXY'):

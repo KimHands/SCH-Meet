@@ -9,5 +9,5 @@ else
   file="/tmp/restore.dump"
   rclone copyto "r2:${R2_BUCKET}/${BACKUP_PREFIX:-sch-meet/postgres}/$src" "$file"
 fi
-pg_restore -h "$PGHOST" -U "$PGUSER" -d "$PGDATABASE" --clean --if-exists --no-owner --no-privileges "$file"
+pg_restore -h "$PGHOST" -U "$PGUSER" -d "$PGDATABASE" --single-transaction --clean --if-exists --no-owner --no-privileges "$file"
 echo "복원 완료: $src"

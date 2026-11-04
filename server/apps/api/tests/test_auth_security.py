@@ -174,6 +174,11 @@ class ClientIpTest(TestCase):
         blank = mock.Mock(META={'HTTP_CF_CONNECTING_IP': '  ', 'REMOTE_ADDR': '10.0.0.1'})
         self.assertEqual(client_ip(blank), '10.0.0.1')
 
+    @override_settings(CLIENT_IP_HEADER='CF-Connecting-IP', TRUSTED_PROXY_COUNT=0)
+    def test_invalid_header_value_falls_back(self):
+        request = mock.Mock(META={'HTTP_CF_CONNECTING_IP': 'not-an-ip', 'REMOTE_ADDR': '10.0.0.1'})
+        self.assertEqual(client_ip(request), '10.0.0.1')
+
     @override_settings(CLIENT_IP_HEADER='', TRUSTED_PROXY_COUNT=0)
     def test_header_ignored_when_not_configured(self):
         request = mock.Mock(META={'HTTP_CF_CONNECTING_IP': '6.6.6.6', 'REMOTE_ADDR': '10.0.0.1'})
