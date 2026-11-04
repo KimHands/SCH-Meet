@@ -204,6 +204,8 @@ OCR_SPACE_API_KEY = os.environ.get('OCR_SPACE_API_KEY', '')
 
 # 레이트리밋용 클라이언트 IP: X-Forwarded-For 오른쪽에서 몇 번째 항목을 믿을지(0이면 REMOTE_ADDR만 사용)
 TRUSTED_PROXY_COUNT = int(os.environ.get('TRUSTED_PROXY_COUNT', '1' if _env_flag('RENDER') else '0'))
+# 프록시가 클라이언트 값을 덮어쓰는 헤더(예: CF-Connecting-IP)가 있으면 X-Forwarded-For보다 우선한다.
+CLIENT_IP_HEADER = os.environ.get('CLIENT_IP_HEADER', '')
 
 # 운영(HTTPS) 보안 설정 — Render는 RENDER=true를 자동 주입한다.
 if _env_flag('RENDER'):

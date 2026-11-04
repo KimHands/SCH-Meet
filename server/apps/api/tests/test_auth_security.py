@@ -159,6 +159,26 @@ class ClientIpTest(TestCase):
     def test_header_ignored_without_trusted_proxy(self):
         self.assertEqual(client_ip(self.request_with('6.6.6.6')), '10.0.0.1')
 
+    @override_settings(CLIENT_IP_HEADER='CF-Connecting-IP', TRUSTED_PROXY_COUNT=1)
+    def test_configured_header_wins_over_forwarded_for(self):
+        request = mock.Mock(META={
+            'HTTP_CF_CONNECTING_IP': '203.0.113.9',
+            'HTTP_X_FORWARDED_FOR': '6.6.6.6',
+            'REMOTE_ADDR': '10.0.0.1',
+        })
+        self.assertEqual(client_ip(request), '203.0.113.9')
+
+    @override_settings(CLIENT_IP_HEADER='CF-Connecting-IP', TRUSTED_PROXY_COUNT=0)
+    def test_missing_or_blank_header_falls_back(self):
+        self.assertEqual(client_ip(mock.Mock(META={'REMOTE_ADDR': '10.0.0.1'})), '10.0.0.1')
+        blank = mock.Mock(META={'HTTP_CF_CONNECTING_IP': '  ', 'REMOTE_ADDR': '10.0.0.1'})
+        self.assertEqual(client_ip(blank), '10.0.0.1')
+
+    @override_settings(CLIENT_IP_HEADER='', TRUSTED_PROXY_COUNT=0)
+    def test_header_ignored_when_not_configured(self):
+        request = mock.Mock(META={'HTTP_CF_CONNECTING_IP': '6.6.6.6', 'REMOTE_ADDR': '10.0.0.1'})
+        self.assertEqual(client_ip(request), '10.0.0.1')
+
 
 class JsonShapeTest(TestCase):
     def test_login_with_json_array_returns_400(self):
