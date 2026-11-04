@@ -134,9 +134,10 @@ function MiniBlock({ block }) {
   if (!mainItem) return null;
   const topPct = ((block.start_minute / 60 - MINI_START) / MINI_TOTAL) * 100;
   const heightPct = (((block.end_minute - block.start_minute) / 60) / MINI_TOTAL) * 100;
+  const titles = block.items.map((it) => it.title).join(', ');
   return (
     <div
-      title={block.items.map((it) => it.title).join(', ')}
+      title={titles}
       style={{
         position: 'absolute',
         top: `${topPct}%`,
@@ -144,8 +145,13 @@ function MiniBlock({ block }) {
         left: 1, right: 1,
         backgroundColor: blockColor(mainItem),
         borderRadius: 2,
+        overflow: 'hidden',
       }}
-    />
+    >
+      <span style={{ display: 'block', padding: '1px 2px', fontSize: 9, lineHeight: '11px', whiteSpace: 'nowrap', color: mainItem.source === 'meeting' ? '#fff' : colors.onSurface }}>
+        {titles}
+      </span>
+    </div>
   );
 }
 

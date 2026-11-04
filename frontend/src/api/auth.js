@@ -21,6 +21,12 @@ export async function getMyProfile() {
   return apiClient('/api/users/me/');
 }
 
+// 회원 탈퇴
+// DELETE /api/users/me/
+export async function deleteMyAccount() {
+  return apiClient('/api/users/me/', { method: 'DELETE' });
+}
+
 // 내 프로필 수정
 // PATCH /api/users/me/
 export async function updateMyProfile({ nickname, profile_image_url }) {

@@ -33,7 +33,7 @@ class TimetableClass(models.Model):
 
 class FixedSchedule(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='fixed_schedules')
-    title = models.CharField(max_length=20)
+    title = models.CharField(max_length=50)
     repeat_days = models.JSONField(default=list)
     start_time = models.TimeField()
     end_time = models.TimeField()
