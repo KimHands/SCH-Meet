@@ -121,7 +121,7 @@ if _database_url:
     import dj_database_url
 
     DATABASES['default'] = dj_database_url.parse(
-        _database_url, conn_max_age=600, ssl_require=True
+        _database_url, conn_max_age=600, ssl_require=_env_flag('DATABASE_SSL_REQUIRE', 'True')
     )
 
 
@@ -207,10 +207,11 @@ TRUSTED_PROXY_COUNT = int(os.environ.get('TRUSTED_PROXY_COUNT', '1' if _env_flag
 # 프록시가 클라이언트 값을 덮어쓰는 헤더(예: CF-Connecting-IP)가 있으면 X-Forwarded-For보다 우선한다.
 CLIENT_IP_HEADER = os.environ.get('CLIENT_IP_HEADER', '')
 
-# 운영(HTTPS) 보안 설정 — Render는 RENDER=true를 자동 주입한다.
-if _env_flag('RENDER'):
+# 운영(HTTPS) 보안 설정 — Render는 RENDER=true를 자동 주입하고, 그 외 환경은 DJANGO_BEHIND_HTTPS_PROXY로 켠다.
+if _env_flag('RENDER') or _env_flag('DJANGO_BEHIND_HTTPS_PROXY'):
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
     SECURE_SSL_REDIRECT = True
+    SECURE_REDIRECT_EXEMPT = [r'^api/health/$']  # 컨테이너 내부 HTTP 헬스체크
     SECURE_HSTS_SECONDS = 60 * 60 * 24 * 365
     SECURE_HSTS_INCLUDE_SUBDOMAINS = False
     SESSION_COOKIE_SECURE = True

@@ -51,3 +51,25 @@ class HealthCheckTest(TestCase):
     def test_only_health_is_exempt_from_https_redirect(self):
         self.assertEqual(self.client.get('/api/health/').status_code, 200)
         self.assertEqual(self.client.get('/api/users/me/').status_code, 301)
+
+
+class DeploySettingsTest(SimpleTestCase):
+    def test_behind_https_proxy_enables_security(self):
+        loaded = _load_settings(DJANGO_BEHIND_HTTPS_PROXY='True')
+        self.assertTrue(loaded['SECURE_SSL_REDIRECT'])
+        self.assertEqual(loaded['SECURE_PROXY_SSL_HEADER'], ['HTTP_X_FORWARDED_PROTO', 'https'])
+        self.assertEqual(loaded['SECURE_REDIRECT_EXEMPT'], [r'^api/health/$'])
+
+    def test_render_still_enables_security(self):
+        loaded = _load_settings(RENDER='true')
+        self.assertTrue(loaded['SECURE_SSL_REDIRECT'])
+        self.assertEqual(loaded['TRUSTED_PROXY_COUNT'], 1)
+
+    def test_security_off_by_default(self):
+        self.assertFalse(_load_settings()['SECURE_SSL_REDIRECT'])
+
+    def test_database_ssl_required_by_default(self):
+        self.assertEqual(_load_settings()['DB_OPTIONS'].get('sslmode'), 'require')
+
+    def test_database_ssl_can_be_disabled(self):
+        self.assertNotIn('sslmode', _load_settings(DATABASE_SSL_REQUIRE='False')['DB_OPTIONS'])
