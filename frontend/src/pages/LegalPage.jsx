@@ -2,11 +2,11 @@ import { colors, screenStyle } from '../styles/theme';
 import AppBar from '../components/AppBar';
 import { LEGAL_DOCUMENTS, LEGAL_EFFECTIVE_DATE } from '../content/legal';
 
-const isLink = (text) => text.startsWith('https://');
+const isEmail = (text) => /^[^\s@]+@[^\s@]+$/.test(text);
 
 function LegalLine({ text }) {
-  if (isLink(text)) {
-    return <a href={text} target="_blank" rel="noreferrer" style={{ color: colors.primary, wordBreak: 'break-all' }}>{text}</a>;
+  if (isEmail(text)) {
+    return <a href={`mailto:${text}`} style={{ color: colors.primary, wordBreak: 'break-all' }}>{text}</a>;
   }
   return text;
 }
