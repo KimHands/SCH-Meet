@@ -1,5 +1,7 @@
 # 배포 가이드 — Vercel(프론트) + Render(백엔드)
 
+> OCI 서버로 옮기는 절차는 [`deploy/README.md`](../../deploy/README.md)에 있다. 이 문서는 전환이 끝날 때까지 쓰는 기존 배포 방식이다.
+
 프론트엔드(Vite)는 **Vercel**, 백엔드(Django)+DB는 **Render**에 배포한다.
 순서: ① Render 백엔드 → ② Vercel 프론트 → ③ 양쪽 도메인으로 환경변수/OAuth 마무리.
 
