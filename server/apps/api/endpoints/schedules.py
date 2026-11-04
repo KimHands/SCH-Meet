@@ -11,6 +11,7 @@ from .user import _get_authorized_user
 
 
 DAY_CODES = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN']
+MAX_TITLE_LENGTH = 50
 
 
 def _parse_time(value):
@@ -54,6 +55,40 @@ def _validate_repeat_days(value):
     return normalized_days
 
 
+def _parse_schedule_fields(request):
+    """요청 본문을 검증해 (저장할 값, None) 또는 (None, 오류 응답)을 돌려준다."""
+    try:
+        body = json.loads(request.body.decode() or '{}')
+    except Exception:
+        return None, JsonResponse({'detail': 'Invalid JSON body'}, status=400)
+    if not isinstance(body, dict):
+        return None, JsonResponse({'detail': 'Invalid JSON body'}, status=400)
+
+    title = body.get('title')
+    if not isinstance(title, str) or not title.strip():
+        return None, JsonResponse({'detail': 'title is required'}, status=400)
+    if len(title.strip()) > MAX_TITLE_LENGTH:
+        return None, JsonResponse({'detail': f'일정 제목은 {MAX_TITLE_LENGTH}자까지 입력할 수 있어요.'}, status=400)
+
+    normalized_days = _validate_repeat_days(body.get('repeat_days'))
+    if normalized_days is None:
+        return None, JsonResponse({'detail': 'repeat_days must contain valid day codes'}, status=400)
+
+    start_time = _parse_time(body.get('start_time'))
+    end_time = _parse_time(body.get('end_time'))
+    if start_time is None or end_time is None:
+        return None, JsonResponse({'detail': 'start_time and end_time must be HH:MM'}, status=400)
+    if end_time <= start_time:
+        return None, JsonResponse({'detail': 'end_time must be after start_time'}, status=400)
+
+    return {
+        'title': title.strip(),
+        'repeat_days': normalized_days,
+        'start_time': start_time,
+        'end_time': end_time,
+    }, None
+
+
 @csrf_exempt
 def fixed_schedules(request):
     if request.method not in ['GET', 'POST']:
@@ -67,45 +102,19 @@ def fixed_schedules(request):
         schedules = FixedSchedule.objects.filter(user=user).order_by('-created_at', '-id')
         return JsonResponse([_serialize_fixed_schedule(schedule) for schedule in schedules], safe=False, status=200)
 
-    try:
-        body = json.loads(request.body.decode() or '{}')
-    except Exception:
-        return JsonResponse({'detail': 'Invalid JSON body'}, status=400)
-
-    title = body.get('title')
-    repeat_days = body.get('repeat_days')
-    start_time = _parse_time(body.get('start_time'))
-    end_time = _parse_time(body.get('end_time'))
-
-    if not isinstance(title, str) or not title.strip():
-        return JsonResponse({'detail': 'title is required'}, status=400)
-    if len(title.strip()) > 20:
-        return JsonResponse({'detail': '일정 제목은 20자까지 입력할 수 있어요.'}, status=400)
-
-    normalized_days = _validate_repeat_days(repeat_days)
-    if normalized_days is None:
-        return JsonResponse({'detail': 'repeat_days must contain valid day codes'}, status=400)
-
-    if start_time is None or end_time is None:
-        return JsonResponse({'detail': 'start_time and end_time must be HH:MM'}, status=400)
-    if end_time <= start_time:
-        return JsonResponse({'detail': 'end_time must be after start_time'}, status=400)
+    fields, error_response = _parse_schedule_fields(request)
+    if error_response:
+        return error_response
 
     with transaction.atomic():
-        schedule = FixedSchedule.objects.create(
-            user=user,
-            title=title.strip(),
-            repeat_days=normalized_days,
-            start_time=start_time,
-            end_time=end_time,
-        )
+        schedule = FixedSchedule.objects.create(user=user, **fields)
 
     return JsonResponse(_serialize_fixed_schedule(schedule), status=201)
 
 
 @csrf_exempt
 def fixed_schedule_detail(request, schedule_id):
-    if request.method != 'DELETE':
+    if request.method not in ['PATCH', 'DELETE']:
         return method_not_allowed()
 
     user, error_response = _get_authorized_user(request)
@@ -116,5 +125,15 @@ def fixed_schedule_detail(request, schedule_id):
     if not schedule:
         return JsonResponse({'detail': 'Not found'}, status=404)
 
-    schedule.delete()
-    return HttpResponse(status=204)
+    if request.method == 'DELETE':
+        schedule.delete()
+        return HttpResponse(status=204)
+
+    fields, error_response = _parse_schedule_fields(request)
+    if error_response:
+        return error_response
+
+    for field_name, value in fields.items():
+        setattr(schedule, field_name, value)
+    schedule.save()
+    return JsonResponse(_serialize_fixed_schedule(schedule), status=200)

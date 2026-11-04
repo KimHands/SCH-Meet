@@ -10,7 +10,7 @@ from .meetings import (
     meeting_recommendations,
     meetings_collection,
 )
-from .notifications import notification_read, notifications_collection
+from .notifications import notification_read, notifications_collection, notifications_read_all
 from .schedules import fixed_schedule_detail, fixed_schedules
 from .timetables import (
     consolidated_timetables,
@@ -38,6 +38,7 @@ __all__ = [
     'dashboard_summary',
     'notifications_collection',
     'notification_read',
+    'notifications_read_all',
     'health_check',
     'timetable_classes',
     'timetable_class_detail',

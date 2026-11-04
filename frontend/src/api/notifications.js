@@ -10,6 +10,12 @@ export async function getNotifications() {
   return apiClient('/api/notifications/');
 }
 
+// 알림 모두 읽음 처리
+// POST /api/notifications/read-all/
+export async function readAllNotifications() {
+  return apiClient('/api/notifications/read-all/', { method: 'POST' });
+}
+
 // 알림 읽음 처리
 // POST /api/notifications/read/{id}/
 export async function readNotification(notificationId) {

@@ -7,7 +7,7 @@ import Icon from '../components/Icon';
 import LoadingSpinner from '../components/LoadingSpinner';
 import Toast from '../components/Toast';
 import { useToast } from '../hooks/useToast';
-import { cancelMeetingConfirmation, getMeeting } from '../api/meetings';
+import { cancelMeetingConfirmation, getMeeting, leaveMeeting } from '../api/meetings';
 import { getMyProfile } from '../api/auth';
 import { formatDuration } from '../utils/duration';
 import { formatConfirmedTime, meetingStatusLabel } from '../utils/meetingTime';
@@ -60,7 +60,7 @@ function MemberRow({ member, isMe, borderBottom }) {
       <span style={{ flex: 1, fontSize: 13, fontWeight: '500', color: colors.onSurface }}>
         {member.nickname}{isMe ? ' (나)' : ''}
       </span>
-      {!member.has_schedule && (
+      {member.has_schedule === false && (
         <span style={{ fontSize: 11, fontWeight: '500', color: colors.onErrorContainer, backgroundColor: colors.errorContainer, padding: '3px 8px', borderRadius: 99 }}>
           시간표 미등록
         </span>
@@ -79,6 +79,7 @@ export default function MeetingDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [cancelling, setCancelling] = useState(false);
+  const [removing, setRemoving] = useState(false);
   const { toast, showToast } = useToast();
 
   useEffect(() => {
@@ -116,12 +117,30 @@ export default function MeetingDetailPage() {
     setCancelling(true);
     try {
       await cancelMeetingConfirmation(id);
-      setMeeting(await getMeeting(id));
-      showToast('확정을 취소했어요.');
     } catch (e) {
       showToast(e.message || '확정을 취소하지 못했어요.');
-    } finally {
       setCancelling(false);
+      return;
+    }
+    // 취소는 끝났으므로 재조회가 실패해도 취소 실패로 안내하지 않는다
+    setMeeting((prev) => ({ ...prev, status: 'OPEN', confirmed_time: null, confirmed_location: '' }));
+    showToast('확정을 취소했어요.');
+    setCancelling(false);
+    getMeeting(id).then(setMeeting).catch(() => {});
+  };
+
+  const handleRemove = async () => {
+    const question = isCreator
+      ? '모임을 삭제할까요?\n참여자 모두의 일정에서 사라지고 되돌릴 수 없어요.'
+      : '이 모임에서 나갈까요?';
+    if (!window.confirm(question)) return;
+    setRemoving(true);
+    try {
+      await leaveMeeting(id);
+      navigate('/meetings', { replace: true });
+    } catch (e) {
+      showToast(e.message || '처리하지 못했어요.');
+      setRemoving(false);
     }
   };
 
@@ -198,7 +217,7 @@ export default function MeetingDetailPage() {
             onClick={() => navigate(`/meetings/${id}/ai-result`)}
           >
             <Icon name="auto_awesome" size={19} color={colors.primary} />
-            <span style={{ fontSize: 14, fontWeight: '600', color: colors.primary }}>AI 추천 결과 보기</span>
+            <span style={{ fontSize: 14, fontWeight: '600', color: colors.primary }}>추천 시간 보기</span>
           </Button>
         )}
 
@@ -228,6 +247,27 @@ export default function MeetingDetailPage() {
               {inviteLink}
             </p>
           </>
+        )}
+
+        {isCreator && meeting.status !== 'CLOSED' && (
+          <Button
+            variant="outline"
+            label="모임 수정"
+            onClick={() => navigate(`/meetings/${id}/edit`)}
+            height={48} fontSize={14}
+            style={{ width: '100%', marginTop: 10 }}
+          />
+        )}
+
+        {(isCreator || meeting.status !== 'CLOSED') && (
+          <button
+            type="button"
+            onClick={handleRemove}
+            disabled={removing}
+            style={{ display: 'block', width: '100%', minHeight: 44, marginTop: 10, fontSize: 13, fontWeight: '500', color: colors.error, opacity: removing ? 0.5 : 1 }}
+          >
+            {isCreator ? '모임 삭제' : '모임 나가기'}
+          </button>
         )}
 
       </div>

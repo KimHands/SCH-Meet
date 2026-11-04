@@ -48,7 +48,7 @@ def _get_profile_display_name(user):
     profile = getattr(user, 'profile', None)
     if profile and getattr(profile, 'nickname', ''):
         return profile.nickname
-    return user.username or f'user-{user.id}'
+    return f'참여자 {user.id}'  # username은 이메일 앞부분이라 다른 사람에게 보이면 안 된다
 
 
 def _next_occurrence(day_code, start_minute):
@@ -93,11 +93,19 @@ def close_finished_meetings(user_ids):
         confirmed_end_minute__isnull=False,
     ).distinct()
     for meeting in candidates:
-        if not _has_finished(meeting, now):
-            continue
-        with transaction.atomic():
-            Meeting.objects.filter(id=meeting.id, status='CONFIRMED').update(status='CLOSED')
-            _remove_confirmed_rows(meeting)
+        if _has_finished(meeting, now):
+            _close_if_finished(meeting.id, now)
+
+
+def _close_if_finished(meeting_id, now):
+    """후보를 읽은 뒤 취소·재확정됐을 수 있으므로 잠금 아래에서 다시 판단한다."""
+    with transaction.atomic():
+        meeting = Meeting.objects.select_for_update().filter(id=meeting_id, status='CONFIRMED').first()
+        if not meeting or meeting.confirmed_date is None or not _has_finished(meeting, now):
+            return
+        meeting.status = 'CLOSED'
+        meeting.save(update_fields=['status'])
+        _remove_confirmed_rows(meeting)
 
 
 def _user_ids_with_schedule(user_ids):
@@ -112,7 +120,7 @@ def _serialize_meeting_member(member, scheduled_user_ids):
     profile = getattr(user, 'profile', None)
     return {
         'user_id': user.id,
-        'nickname': getattr(profile, 'nickname', '') or user.username,
+        'nickname': _get_profile_display_name(user),
         'profile_image_url': getattr(profile, 'profile_image_url', ''),
         'role': member.role,
         'is_creator': member.role == 'CREATOR',
@@ -257,10 +265,10 @@ def _merge_intervals(intervals):
     return [(start_minute, end_minute) for start_minute, end_minute in merged]
 
 
-def _collect_busy_intervals(user_ids):
+def _collect_busy_intervals(user_ids, exact_date=None):
     daily_busy_intervals = {day_code: [] for day_code in DAY_CODES}
 
-    for timetable_class in TimetableClass.objects.filter(user_id__in=user_ids):
+    for timetable_class in TimetableClass.objects.filter(user_id__in=user_ids).exclude(source='meeting'):
         if timetable_class.day in daily_busy_intervals:
             daily_busy_intervals[timetable_class.day].append((timetable_class.start_minute, timetable_class.end_minute))
 
@@ -271,13 +279,47 @@ def _collect_busy_intervals(user_ids):
             if day_code in daily_busy_intervals:
                 daily_busy_intervals[day_code].append((start_minute, end_minute))
 
+    confirmed_meetings = Meeting.objects.filter(
+        status='CONFIRMED',
+        members__user_id__in=user_ids,
+        confirmed_start_minute__isnull=False,
+        confirmed_end_minute__isnull=False,
+    ).distinct()
+    now = timezone.localtime(timezone.now())
+    for meeting in confirmed_meetings:
+        interval = _meeting_busy_interval(meeting, now, exact_date)
+        if interval and meeting.confirmed_day in daily_busy_intervals:
+            daily_busy_intervals[meeting.confirmed_day].append(interval)
+
     return daily_busy_intervals
 
 
-def _compute_common_free_slots(members):
+def _meeting_busy_interval(meeting, now, exact_date):
+    """확정 모임이 막는 시간. 확정 시에는 그 날짜만 비교하고, 추천 시에는 후보가 가리킬 날짜로 판단한다."""
+    start_minute, end_minute = meeting.confirmed_start_minute, meeting.confirmed_end_minute
+    if meeting.confirmed_date is None:  # 날짜 도입 전에 확정된 모임은 매주 막는다
+        return start_minute, end_minute
+    if exact_date is not None:
+        return (start_minute, end_minute) if meeting.confirmed_date == exact_date else None
+
+    days_ahead = (meeting.confirmed_date - now.date()).days
+    if days_ahead < 0 or days_ahead > 7:
+        return None
+    if days_ahead < 7:
+        return start_minute, end_minute
+    # 정확히 다음 주 같은 요일: 오늘 이미 지난 시각의 후보만 그 날짜를 가리킨다
+    now_minute = now.hour * 60 + now.minute
+    if start_minute > now_minute:
+        return None
+    # 지금 시각 자체도 다음 주를 가리키므로, 그 뒤의 확정 가능한 첫 시각부터 비워 둔다
+    first_future_start = (now_minute // CONFIRM_MINUTE_STEP + 1) * CONFIRM_MINUTE_STEP
+    return start_minute, min(end_minute, first_future_start)
+
+
+def _compute_common_free_slots(members, exact_date=None):
     member_user_ids = [member.user_id for member in members]
     close_finished_meetings(member_user_ids)
-    daily_busy = _collect_busy_intervals(member_user_ids)
+    daily_busy = _collect_busy_intervals(member_user_ids, exact_date)
     common_free_slots = {day_code: [] for day_code in DAY_CODES}
 
     for day_code in DAY_CODES:
@@ -317,13 +359,17 @@ def _contains_any(text, values):
     return any(value.lower() in lowered for value in values)
 
 
+def _requested_time_text(meeting, members):
+    wishes = [meeting.desired_time, *(member.desired_time for member in members)]
+    return ' '.join(wish.strip() for wish in wishes if wish and wish.strip())
+
+
 def _requested_day_labels(requested_time):
     matches = REQUESTED_DAY_PATTERN.findall(requested_time)
     return {label for full_name, standalone in matches for label in full_name + standalone}
 
 
-def _does_slot_match_requested_time(day_code, start_minute, meeting):
-    requested_time = (meeting.desired_time or '').strip()
+def _does_slot_match_requested_time(day_code, start_minute, requested_time):
     if not requested_time:
         return []
 
@@ -400,7 +446,7 @@ def _common_slot_reason(member_count, scheduled_count):
 
 def _build_rule_based_reasons(meeting, members, scheduled_count, day_code, start_minute, slot_length):
     member_count = len(members)
-    preference_matches = _does_slot_match_requested_time(day_code, start_minute, meeting)
+    preference_matches = _does_slot_match_requested_time(day_code, start_minute, _requested_time_text(meeting, members))
     location_reasons = _location_reasons(meeting, members)
 
     reason_bullets = [_common_slot_reason(member_count, scheduled_count)]
@@ -422,11 +468,11 @@ def _build_rule_based_reasons(meeting, members, scheduled_count, day_code, start
     return reason_bullets[:4], score
 
 
-def _best_start_in_slot(meeting, day_code, slot_start, slot_end):
+def _best_start_in_slot(meeting, requested_time, day_code, slot_start, slot_end):
     """희망 시간대와 가장 많이 맞는 시작 시각(동점이면 이른 시각)을 고른다."""
     latest_start = slot_end - meeting.duration_minutes
     starts = range(slot_start, latest_start + 1, CANDIDATE_START_STEP)
-    return max(starts, key=lambda start: (len(_does_slot_match_requested_time(day_code, start, meeting)), -start))
+    return max(starts, key=lambda start: (len(_does_slot_match_requested_time(day_code, start, requested_time)), -start))
 
 
 def _build_recommendation_candidates(meeting, members, common_free_slots=None):
@@ -434,6 +480,7 @@ def _build_recommendation_candidates(meeting, members, common_free_slots=None):
         common_free_slots = _compute_common_free_slots(members)
     duration = meeting.duration_minutes
     scheduled_count = len(_user_ids_with_schedule([member.user_id for member in members]))
+    requested_time = _requested_time_text(meeting, members)
     candidates = []
 
     for day_code in DAY_CODES:
@@ -442,7 +489,7 @@ def _build_recommendation_candidates(meeting, members, common_free_slots=None):
             if slot_length < duration:
                 continue
 
-            start_minute = _best_start_in_slot(meeting, day_code, slot_start, slot_end)
+            start_minute = _best_start_in_slot(meeting, requested_time, day_code, slot_start, slot_end)
             reason_bullets, score = _build_rule_based_reasons(
                 meeting, members, scheduled_count, day_code, start_minute, slot_length,
             )
@@ -480,7 +527,7 @@ def _serialize_confirmed_meeting(meeting):
         confirmed_members.append(
             {
                 'user_id': member.user.id,
-                'nickname': getattr(profile, 'nickname', '') or member.user.username,
+                'nickname': _get_profile_display_name(member.user),
                 'profile_image_url': getattr(profile, 'profile_image_url', ''),
                 'role': member.role,
             }
@@ -746,13 +793,6 @@ def _create_meeting(request, user):
         meeting = Meeting.objects.create(creator=user, **fields)
         MeetingMember.objects.create(meeting=meeting, user=user, role='CREATOR')
         token = _create_invite_token(meeting)
-        _create_notification(
-            user=user,
-            kind='MEETING_CREATED',
-            title='모임이 생성되었습니다',
-            body=f'"{meeting.name}" 모임 초대 링크가 생성되었습니다.',
-            related_meeting=meeting,
-        )
 
     invite_link = _build_invite_link(token, request)
     return JsonResponse({'meeting_id': meeting.id, 'invite_link': invite_link, 'token': token}, status=201)
@@ -782,12 +822,39 @@ def meeting_detail(request, meeting_id):
 
     with transaction.atomic():
         if membership.role != 'CREATOR':
-            _remove_confirmed_rows(meeting, user=user)
-            membership.delete()
+            _leave_meeting(meeting, membership, user)
         else:
-            _remove_confirmed_rows(meeting)
-            meeting.delete()
+            _delete_meeting(meeting)
     return HttpResponse(status=204)
+
+
+def _leave_meeting(meeting, membership, user):
+    Meeting.objects.select_for_update().get(id=meeting.id)  # 진행 중인 확정이 내 일정을 되살리지 않게 한다
+    _remove_confirmed_rows(meeting, user=user)
+    membership.delete()
+    Notification.objects.filter(user=user, related_meeting=meeting).update(related_meeting=None)
+    _create_notification(
+        user=meeting.creator,
+        kind='SYSTEM',
+        title='참여자가 모임을 나갔습니다',
+        body=f'{_get_profile_display_name(user)}님이 "{meeting.name}" 모임을 나갔습니다.',
+        related_meeting=meeting,
+    )
+
+
+def _delete_meeting(meeting):
+    other_members = [member.user for member in meeting.members.exclude(user=meeting.creator).select_related('user')]
+    meeting_name = meeting.name
+    _remove_confirmed_rows(meeting)
+    meeting.delete()
+    # 알림은 모임과 함께 지워지지 않도록 모임에 연결하지 않는다
+    for member_user in other_members:
+        _create_notification(
+            user=member_user,
+            kind='SYSTEM',
+            title='모임이 삭제되었습니다',
+            body=f'"{meeting_name}" 모임을 모임장이 삭제했습니다.',
+        )
 
 
 def _update_meeting(request, meeting, membership):
@@ -806,9 +873,29 @@ def _update_meeting(request, meeting, membership):
         if 'duration_minutes' in updates and meeting.status != 'OPEN':
             return JsonResponse({'detail': '확정된 모임은 시간을 바꿀 수 없어요.'}, status=409)
         _save_meeting_updates(meeting, updates)
+        if meeting.status == 'CONFIRMED':
+            _apply_confirmed_edit(meeting, updates)
 
     refreshed_meeting = Meeting.objects.select_related('creator').get(id=meeting.id)
     return JsonResponse(_serialize_meeting_detail(refreshed_meeting, membership, request), status=200)
+
+
+def _apply_confirmed_edit(meeting, updates):
+    """확정된 모임의 이름·장소가 바뀌면 시간표에 반영하고 참여자에게 알린다."""
+    if 'name' not in updates and 'desired_location' not in updates:
+        return
+    meeting.confirmed_location = meeting.desired_location or ''
+    meeting.save(update_fields=['confirmed_location'])
+    _sync_confirmed_meeting_to_timetables(meeting)
+    location_text = f' 장소: {meeting.confirmed_location}' if meeting.confirmed_location else ''
+    for member in meeting.members.exclude(user=meeting.creator).select_related('user'):
+        _create_notification(
+            user=member.user,
+            kind='SYSTEM',
+            title='모임 정보가 변경되었습니다',
+            body=f'"{meeting.name}" 모임 정보가 바뀌었어요.{location_text}',
+            related_meeting=meeting,
+        )
 
 
 def _save_meeting_updates(meeting, updates):
@@ -907,8 +994,8 @@ def meeting_invite_join(request, token):
         _create_notification(
             user=meeting.creator,
             kind='MEETING_JOINED',
-            title='새 참여 요청이 도착했습니다',
-            body=f'"{meeting.name}" 모임에 새로운 참여자가 합류했습니다.',
+            title='새 참여자가 합류했습니다',
+            body=f'{_get_profile_display_name(user)}님이 "{meeting.name}" 모임에 참여했습니다.',
             related_meeting=meeting,
         )
 
@@ -1043,7 +1130,7 @@ def _cancel_confirmation(meeting):
         for member in meeting.members.exclude(user=meeting.creator).select_related('user'):
             _create_notification(
                 user=member.user,
-                kind='MEETING_CONFIRMED',
+                kind='SYSTEM',
                 title='모임 일정 확정이 취소되었습니다',
                 body=f'"{meeting.name}" 모임의 시간을 다시 정하고 있어요.',
                 related_meeting=meeting,
@@ -1062,22 +1149,31 @@ def _parse_confirm_selection(body):
     if start_minute % CONFIRM_MINUTE_STEP != 0:
         return None, _bad_request('확정 시각은 5분 단위여야 해요.')
     recommendation_id = _parse_positive_int(body.get('selected_recommendation_id'))
-    return {'recommendation_id': recommendation_id, 'day': day, 'start_minute': start_minute}, None
+    return {
+        'recommendation_id': recommendation_id,
+        'day': day,
+        'start_minute': start_minute,
+        'expected_date': body.get('date'),
+    }, None
 
 
 def _resolve_confirm_slot(meeting, members, selection):
     end_minute = selection['start_minute'] + meeting.duration_minutes
-    common_free_slots = _compute_common_free_slots(members)
+    confirmed_date = _next_occurrence(selection['day'], selection['start_minute'])
+    if selection['expected_date'] not in (None, confirmed_date.isoformat()):
+        return None, JsonResponse({'detail': '시간이 지나 날짜가 바뀌었어요. 추천을 다시 확인해 주세요.'}, status=409)
+
+    common_free_slots = _compute_common_free_slots(members, exact_date=confirmed_date)
     if not _fits_in_free_slot(common_free_slots, selection['day'], selection['start_minute'], end_minute):
         stale_message = '선택한 시간에 다른 일정이 생겼어요. 추천을 다시 불러와 주세요.'
         return None, JsonResponse({'detail': stale_message}, status=409)
-    return {**selection, 'end_minute': end_minute}, None
+    return {**selection, 'end_minute': end_minute, 'date': confirmed_date}, None
 
 
 def _apply_confirmation(meeting, confirmed_slot):
     meeting.status = 'CONFIRMED'
     meeting.confirmed_recommendation_id = confirmed_slot.get('recommendation_id')
-    meeting.confirmed_date = _next_occurrence(confirmed_slot['day'], confirmed_slot['start_minute'])
+    meeting.confirmed_date = confirmed_slot['date']
     meeting.confirmed_day = confirmed_slot['day']
     meeting.confirmed_start_minute = confirmed_slot['start_minute']
     meeting.confirmed_end_minute = confirmed_slot['end_minute']

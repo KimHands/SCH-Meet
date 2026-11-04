@@ -6,7 +6,7 @@ import Icon from '../components/Icon';
 import Toast from '../components/Toast';
 import ErrorBanner from '../components/ErrorBanner';
 import { useToast } from '../hooks/useToast';
-import { getMyProfile, updateMyProfile } from '../api/auth';
+import { deleteMyAccount, getMyProfile, updateMyProfile } from '../api/auth';
 import { token } from '../utils/token';
 
 const listCardStyle = {
@@ -37,9 +37,9 @@ function MenuRow({ icon, label, color = colors.onSurface, iconColor = colors.pri
 }
 
 const INFO_ITEMS = [
-  { icon: 'calendar_view_week', label: '시간표 관리',   path: '/upload-timetable' },
-  { icon: 'event_repeat',       label: '고정 일정 관리', path: '/add-schedule' },
-  { icon: 'notifications',      label: '알림 설정',     path: '/notifications' },
+  { icon: 'calendar_view_week', label: '시간표 관리',   path: '/upload-timetable', state: { manage: true } },
+  { icon: 'event_repeat',       label: '고정 일정 관리', path: '/add-schedule', state: { manage: true } },
+  { icon: 'notifications',      label: '알림',         path: '/notifications' },
 ];
 
 export default function MyPage() {
@@ -87,6 +87,18 @@ export default function MyPage() {
     if (window.confirm('로그아웃 하시겠어요?')) {
       token.remove();
       navigate('/login');
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    const question = '정말 탈퇴할까요?\n\n시간표와 고정 일정, 내가 만든 모임이 모두 삭제되고 되돌릴 수 없어요.';
+    if (!window.confirm(question)) return;
+    try {
+      await deleteMyAccount();
+      token.remove();
+      navigate('/login', { replace: true });
+    } catch (e) {
+      showToast(e.message || '탈퇴를 처리하지 못했어요.');
     }
   };
 
@@ -192,16 +204,24 @@ export default function MyPage() {
               key={it.label}
               icon={it.icon}
               label={it.label}
-              onClick={() => navigate(it.path)}
+              onClick={() => navigate(it.path, { state: it.state })}
               borderBottom={i < INFO_ITEMS.length - 1 ? `1px solid ${colors.surfaceContainerLow}` : 'none'}
             />
           ))}
         </ul>
 
+        {/* 약관 */}
+        <h2 style={{ marginTop: 22, fontSize: 12, fontWeight: '600', color: colors.outline }}>약관</h2>
+        <ul style={listCardStyle}>
+          <MenuRow icon="assignment" label="이용약관" onClick={() => navigate('/terms')} borderBottom={`1px solid ${colors.surfaceContainerLow}`} />
+          <MenuRow icon="person" label="개인정보처리방침" onClick={() => navigate('/privacy')} />
+        </ul>
+
         {/* 계정 */}
         <h2 style={{ marginTop: 22, fontSize: 12, fontWeight: '600', color: colors.outline }}>계정</h2>
         <ul style={listCardStyle}>
-          <MenuRow icon="logout" label="로그아웃" color={colors.error} iconColor={colors.error} onClick={handleLogout} />
+          <MenuRow icon="logout" label="로그아웃" color={colors.error} iconColor={colors.error} onClick={handleLogout} borderBottom={`1px solid ${colors.surfaceContainerLow}`} />
+          <MenuRow icon="delete" label="회원 탈퇴" color={colors.error} iconColor={colors.error} onClick={handleDeleteAccount} />
         </ul>
 
       </main>
