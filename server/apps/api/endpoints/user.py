@@ -3,7 +3,7 @@ import json
 import jwt
 from django.conf import settings
 from django.contrib.auth.models import User
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 
 from ..models import UserProfile
@@ -67,12 +67,18 @@ def _serialize_user(user, profile):
 
 @csrf_exempt
 def user_me(request):
-    if request.method not in ['GET', 'PATCH']:
+    if request.method not in ['GET', 'PATCH', 'DELETE']:
         return method_not_allowed()
 
     user, error_response = _get_authorized_user(request)
     if error_response:
         return error_response
+
+    if request.method == 'DELETE':
+        from .account import delete_account
+
+        delete_account(user)
+        return HttpResponse(status=204)
 
     profile = _get_or_create_profile(user)
 
