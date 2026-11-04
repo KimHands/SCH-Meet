@@ -120,13 +120,13 @@ export default function MeetingListPage() {
                   <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
                     <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
                       <div style={{
-                        width: 42, height: 42, borderRadius: 12,
+                        width: 42, height: 42, flexShrink: 0, borderRadius: 12,
                         backgroundColor: bg,
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                       }}>
                         <Icon name={icon} size={22} color={fg} />
                       </div>
-                      <div>
+                      <div style={{ minWidth: 0 }}>
                         <span style={{ display: 'block', fontSize: 16, fontWeight: '600', color: colors.onSurface }}>{m.name ?? m.title}</span>
                         <span style={{ display: 'block', fontSize: 12, color: colors.outline, marginTop: 2 }}>
                           {count}명 · {m.purpose || '모임'}

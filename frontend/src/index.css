@@ -45,7 +45,7 @@ body {
 /* 모바일 앱 컨테이너 — PC에서 폰처럼 보이게 */
 #root {
   width: 100%;
-  max-width: 390px;
+  max-width: 480px;
   min-height: 100vh;
   min-height: 100dvh;
   background-color: #faf8ff;
@@ -66,6 +66,17 @@ body {
 /* 기본 버튼/폼 리셋 */
 button, input, select, textarea {
   font-family: inherit;
+}
+
+/* iOS는 16px 미만 입력칸을 누르면 화면을 확대한 채로 둔다 */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+@media (pointer: coarse) {
+  input, select, textarea {
+    font-size: 16px !important;
+  }
 }
 
 button {
