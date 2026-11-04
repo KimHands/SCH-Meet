@@ -1,26 +1,31 @@
 /**
- * 로그인 토큰 관리 유틸
- * localStorage에 accessToken 저장/조회/삭제
+ * 로그인 토큰 관리 유틸 — 토큰 저장소 접근은 반드시 이 모듈을 통한다.
  */
 
+const ACCESS_KEY = 'accessToken';
+const REFRESH_KEY = 'refreshToken';
+
 export const token = {
-  // 토큰 저장 (로그인 성공 시 호출)
-  save(accessToken) {
-    localStorage.setItem('accessToken', accessToken);
+  // refresh 를 생략하면 기존 refresh 토큰을 유지한다 (액세스 토큰 갱신 시)
+  save(accessToken, refreshToken) {
+    localStorage.setItem(ACCESS_KEY, accessToken);
+    if (refreshToken) localStorage.setItem(REFRESH_KEY, refreshToken);
   },
 
-  // 토큰 조회
   get() {
-    return localStorage.getItem('accessToken');
+    return localStorage.getItem(ACCESS_KEY);
   },
 
-  // 로그인 여부 확인
+  getRefresh() {
+    return localStorage.getItem(REFRESH_KEY);
+  },
+
   exists() {
-    return !!localStorage.getItem('accessToken');
+    return !!localStorage.getItem(ACCESS_KEY);
   },
 
-  // 토큰 삭제 (로그아웃 시 호출)
   remove() {
-    localStorage.removeItem('accessToken');
+    localStorage.removeItem(ACCESS_KEY);
+    localStorage.removeItem(REFRESH_KEY);
   },
 };

@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { colors } from '../styles/theme';
+import { colors, screenStyle, pressableStyle } from '../styles/theme';
+import ErrorBanner from '../components/ErrorBanner';
 import BottomNav from '../components/BottomNav';
 import Icon from '../components/Icon';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -25,13 +26,18 @@ export default function NotificationsPage() {
   const navigate = useNavigate();
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
 
-  useEffect(() => {
+  const loadNotifications = useCallback(() => {
+    setLoading(true);
+    setLoadError('');
     getNotifications()
-      .then(setNotifications)
-      .catch(() => setNotifications([]))
+      .then((data) => setNotifications(data ?? []))
+      .catch((e) => setLoadError(e.message || '알림을 불러오지 못했어요.'))
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(loadNotifications, [loadNotifications]);
 
   const handleRead = async (n) => {
     if (!n.is_read) {
@@ -51,12 +57,12 @@ export default function NotificationsPage() {
   const unreadCount = notifications.filter((n) => !n.is_read).length;
 
   return (
-    <div style={{ height: '100vh', backgroundColor: colors.surface, display: 'flex', flexDirection: 'column' }}>
+    <div style={screenStyle}>
 
-      <div style={{ flex: 1, overflowY: 'auto', padding: '8px 20px 80px' }}>
+      <main style={{ flex: 1, overflowY: 'auto', padding: '8px 20px 80px' }}>
 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <p style={{ marginTop: 4, fontSize: 22, fontWeight: '700', color: colors.onSurface }}>알림</p>
+          <h1 style={{ marginTop: 4, fontSize: 22, fontWeight: '700', color: colors.onSurface }}>알림</h1>
           {unreadCount > 0 && (
             <span style={{
               backgroundColor: colors.primary, color: '#fff',
@@ -70,22 +76,26 @@ export default function NotificationsPage() {
           )}
         </div>
 
+        {loadError && <ErrorBanner message={loadError} onRetry={loadNotifications} style={{ marginTop: 16 }} />}
+
         {loading ? (
-          <div style={{ marginTop: 80 }}><LoadingSpinner /></div>
-        ) : notifications.length === 0 ? (
+          <div style={{ marginTop: 40 }}><LoadingSpinner fullScreen={false} /></div>
+        ) : loadError ? null : notifications.length === 0 ? (
           <div style={{ marginTop: 80, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
             <Icon name="notifications_off" size={48} color={colors.outlineVariant} />
             <p style={{ fontSize: 14, color: colors.outline }}>아직 도착한 알림이 없어요</p>
           </div>
         ) : (
-          <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <ul style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 10, listStyle: 'none' }}>
             {notifications.map((n) => {
               const t = KIND_ICON[n.kind] ?? DEFAULT_ICON;
               return (
-                <div
-                  key={n.id}
+                <li key={n.id}>
+                <button
+                  type="button"
                   onClick={() => handleRead(n)}
                   style={{
+                    ...pressableStyle,
                     display: 'flex', alignItems: 'flex-start', gap: 12,
                     backgroundColor: n.is_read ? '#fff' : colors.primaryFixed,
                     border: `1px solid ${n.is_read ? colors.surfaceContainerHighest : colors.primaryFixedDim}`,
@@ -95,8 +105,9 @@ export default function NotificationsPage() {
                     position: 'relative',
                   }}
                 >
+                  {!n.is_read && <span className="visually-hidden">읽지 않음</span>}
                   {!n.is_read && (
-                    <div style={{
+                    <div aria-hidden="true" style={{
                       position: 'absolute', top: 14, right: 14,
                       width: 8, height: 8, borderRadius: 99,
                       backgroundColor: colors.primary,
@@ -110,16 +121,17 @@ export default function NotificationsPage() {
                     <Icon name={t.icon} size={20} color={t.fg} />
                   </div>
                   <div style={{ flex: 1, paddingRight: 16 }}>
-                    <p style={{ fontSize: 13, fontWeight: '600', color: colors.onSurface }}>{n.title}</p>
-                    <p style={{ fontSize: 12, color: colors.secondary, marginTop: 3, lineHeight: '18px' }}>{n.body}</p>
-                    <p style={{ fontSize: 11, color: colors.outline, marginTop: 6 }}>{timeAgo(n.created_at)}</p>
+                    <span style={{ display: 'block', fontSize: 13, fontWeight: '600', color: colors.onSurface }}>{n.title}</span>
+                    <span style={{ display: 'block', fontSize: 12, color: colors.secondary, marginTop: 3, lineHeight: '18px' }}>{n.body}</span>
+                    <span style={{ display: 'block', fontSize: 11, color: colors.outline, marginTop: 6 }}>{timeAgo(n.created_at)}</span>
                   </div>
-                </div>
+                </button>
+                </li>
               );
             })}
-          </div>
+          </ul>
         )}
-      </div>
+      </main>
 
       <BottomNav />
     </div>

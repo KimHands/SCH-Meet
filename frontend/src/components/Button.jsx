@@ -11,6 +11,7 @@ export default function Button({
   fontSize = 16,
   type = 'button',
   disabled = false,
+  pressed,
 }) {
   const v = VARIANTS[variant];
   return (
@@ -18,6 +19,7 @@ export default function Button({
       type={type}
       onClick={onClick}
       disabled={disabled}
+      aria-pressed={pressed}
       style={{
         display: 'flex',
         flexDirection: 'row',
@@ -30,7 +32,6 @@ export default function Button({
         backgroundColor: v.bg,
         color: v.color,
         fontSize,
-        fontFamily: "'Be Vietnam Pro', sans-serif",
         fontWeight: '600',
         cursor: disabled ? 'not-allowed' : 'pointer',
         opacity: disabled ? 0.5 : 1,

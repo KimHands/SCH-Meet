@@ -10,8 +10,9 @@ export async function loginWithGoogle(idToken) {
   return apiClient('/api/auth/login/', {
     method: 'POST',
     body: JSON.stringify({ id_token: idToken }),
+    auth: false,
   });
-  // 응답: { access_token, refresh_token, is_new_user }
+  // 응답: { access, refresh, is_new_user, ... }
 }
 
 // 내 프로필 조회

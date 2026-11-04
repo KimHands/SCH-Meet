@@ -35,7 +35,7 @@
 `server/.env` 파일을 생성하고 다음을 기록(이미 존재하면 줄만 추가):
 
 ```
-OCR_SPACE_API_KEY=K82796185288957
+OCR_SPACE_API_KEY=<발급받은_키>
 ```
 
 - [ ] **Step 2: `.env.example`에 플레이스홀더 추가**

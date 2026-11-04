@@ -36,5 +36,3 @@ services:
         sync: false
       - key: GOOGLE_CLIENT_SECRET
         sync: false
-      - key: OCR_SPACE_API_KEY
-        sync: false               # 예: K82796185288957

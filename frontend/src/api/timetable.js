@@ -14,24 +14,22 @@ export async function uploadTimetableUrl(url) {
   // 응답: { status: "success", parsed_classes_count: 5 }
 }
 
-// 시간표 이미지 업로드 (OCR)
-// POST /api/timetables/upload-image/
-export async function uploadTimetableImage(imageFile) {
-  const token = localStorage.getItem('accessToken');
-  const formData = new FormData();
-  formData.append('file', imageFile);
+// 등록된 수업 목록 (확정 모임 제외)
+// GET /api/timetables/classes/
+export async function getTimetableClasses() {
+  return apiClient('/api/timetables/classes/');
+}
 
-  const res = await fetch(
-    `${import.meta.env.VITE_API_BASE_URL}/api/timetables/upload-image/`,
-    {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}` },
-      body: formData,
-    }
-  );
+// 등록된 수업 하나 삭제
+// DELETE /api/timetables/classes/{id}/
+export async function deleteTimetableClass(classId) {
+  return apiClient(`/api/timetables/classes/${classId}/`, { method: 'DELETE' });
+}
 
-  if (!res.ok) throw new Error('이미지 업로드에 실패했어요.');
-  return res.json();
+// 등록된 수업 전체 삭제
+// DELETE /api/timetables/classes/
+export async function deleteAllTimetableClasses() {
+  return apiClient('/api/timetables/classes/', { method: 'DELETE' });
 }
 
 // 통합 시간표 조회 (수업 + 고정 일정 병합)
@@ -39,14 +37,4 @@ export async function uploadTimetableImage(imageFile) {
 export async function getConsolidatedTimetable() {
   return apiClient('/api/timetables/consolidated/');
   // 응답: { "MON": [{ start: "09:00", end: "12:00" }], ... }
-}
-
-// 이미지 OCR 파싱 결과 확정 저장
-// POST /api/timetables/image/confirm/
-export async function confirmTimetableImage(classes) {
-  return apiClient('/api/timetables/image/confirm/', {
-    method: 'POST',
-    body: JSON.stringify({ classes }),
-  });
-  // 응답: { status: "success", parsed_classes_count: 5 }
 }

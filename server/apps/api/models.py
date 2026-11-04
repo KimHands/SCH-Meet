@@ -57,6 +57,7 @@ class Meeting(models.Model):
     latitude = models.FloatField(null=True, blank=True)
     longitude = models.FloatField(null=True, blank=True)
     capacity = models.PositiveIntegerField(default=2)
+    duration_minutes = models.PositiveSmallIntegerField(default=60)
     creator = models.ForeignKey(User, on_delete=models.CASCADE, related_name='created_meetings')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='OPEN')
     confirmed_recommendation_id = models.PositiveIntegerField(null=True, blank=True)
@@ -86,6 +87,11 @@ class MeetingMember(models.Model):
     latitude = models.FloatField(null=True, blank=True)
     longitude = models.FloatField(null=True, blank=True)
     joined_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['meeting', 'user'], name='unique_meeting_member'),
+        ]
 
     def __str__(self):
         return f'MeetingMember(meeting_id={self.meeting_id}, user_id={self.user_id}, role={self.role})'

@@ -28,3 +28,6 @@ venv/
 # Django collected static (배포 시 collectstatic으로 생성)
 staticfiles/
 .superpowers/
+
+# DB 덤프
+*.dump

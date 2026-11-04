@@ -20,7 +20,7 @@ def _get_authorized_user(request):
         return None, JsonResponse({'detail': 'Unauthorized'}, status=401)
 
     try:
-        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=['HS256'])
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=['HS256'], options={'require': ['exp']})
     except jwt.ExpiredSignatureError:
         return None, JsonResponse({'detail': 'Unauthorized'}, status=401)
     except jwt.InvalidTokenError:
@@ -33,11 +33,22 @@ def _get_authorized_user(request):
     if not user_id:
         return None, JsonResponse({'detail': 'Unauthorized'}, status=401)
 
-    user = User.objects.filter(id=user_id).first()
+    user = User.objects.filter(id=user_id, is_active=True).first()
     if not user:
         return None, JsonResponse({'detail': 'Unauthorized'}, status=401)
 
     return user, None
+
+
+MAX_PROFILE_IMAGE_URL_LENGTH = 500
+
+
+def _is_safe_image_url(value):
+    return (
+        isinstance(value, str)
+        and len(value) <= MAX_PROFILE_IMAGE_URL_LENGTH
+        and value.startswith('https://')
+    )
 
 
 def _get_or_create_profile(user):
@@ -83,8 +94,8 @@ def user_me(request):
 
     if 'profile_image_url' in body:
         profile_image_url = body.get('profile_image_url')
-        if profile_image_url is not None and not isinstance(profile_image_url, str):
-            return JsonResponse({'detail': 'profile_image_url must be a string'}, status=400)
+        if profile_image_url and not _is_safe_image_url(profile_image_url):
+            return JsonResponse({'detail': '프로필 이미지 주소가 올바르지 않아요.'}, status=400)
         profile.profile_image_url = profile_image_url or ''
 
     profile.save()

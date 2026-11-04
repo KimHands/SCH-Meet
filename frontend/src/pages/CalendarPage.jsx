@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
-import { colors } from '../styles/theme';
+import { useState, useEffect, useCallback } from 'react';
+import { colors, screenStyle } from '../styles/theme';
+import ErrorBanner from '../components/ErrorBanner';
 import BottomNav from '../components/BottomNav';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { getConsolidatedTimetable } from '../api/timetable';
@@ -25,20 +26,28 @@ const textColor = (item) => {
 export default function CalendarPage() {
   const [timetable, setTimetable] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
 
-  useEffect(() => {
+  const loadTimetable = useCallback(() => {
+    setLoading(true);
+    setLoadError('');
     getConsolidatedTimetable()
-      .then(setTimetable)
-      .catch(() => setTimetable({}))
+      .then((data) => setTimetable(data ?? {}))
+      .catch((e) => {
+        setTimetable({});
+        setLoadError(e.message || '시간표를 불러오지 못했어요.');
+      })
       .finally(() => setLoading(false));
   }, []);
 
+  useEffect(loadTimetable, [loadTimetable]);
+
   return (
-    <div style={{ height: '100vh', backgroundColor: colors.surface, display: 'flex', flexDirection: 'column' }}>
+    <div style={screenStyle}>
 
       {/* 헤더 */}
       <div style={{ padding: '12px 20px 0' }}>
-        <p style={{ fontSize: 22, fontWeight: '700', color: colors.onSurface }}>캘린더</p>
+        <h1 style={{ fontSize: 22, fontWeight: '700', color: colors.onSurface }}>캘린더</h1>
 
         {/* 범례 */}
         <div style={{ marginTop: 10, marginBottom: 8, display: 'flex', gap: 12 }}>
@@ -49,18 +58,19 @@ export default function CalendarPage() {
           ].map((l) => (
             <div key={l.label} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
               <div style={{ width: 10, height: 10, borderRadius: 3, backgroundColor: l.color }} />
-              <span style={{ fontSize: 10, color: colors.outline }}>{l.label}</span>
+              <span style={{ fontSize: 11, color: colors.outline }}>{l.label}</span>
             </div>
           ))}
         </div>
+        {loadError && <ErrorBanner message={loadError} onRetry={loadTimetable} style={{ marginBottom: 8 }} />}
       </div>
 
       {loading ? (
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <LoadingSpinner />
+          <LoadingSpinner fullScreen={false} />
         </div>
       ) : (
-        <div style={{ flex: 1, overflowY: 'auto', paddingBottom: 70 }}>
+        <main style={{ flex: 1, overflowY: 'auto', paddingBottom: 70 }}>
 
           {/* 요일 헤더 */}
           <div style={{
@@ -85,7 +95,7 @@ export default function CalendarPage() {
             <div style={{ width: 40, flexShrink: 0 }}>
               {HOURS.map((h) => (
                 <div key={h} style={{ height: HOUR_HEIGHT, display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-end', paddingRight: 6, paddingTop: 2 }}>
-                  <span style={{ fontSize: 9, color: '#a9abb6' }}>{String(h).padStart(2, '0')}</span>
+                  <span style={{ fontSize: 11, color: colors.outline }}>{String(h).padStart(2, '0')}</span>
                 </div>
               ))}
             </div>
@@ -118,7 +128,7 @@ export default function CalendarPage() {
                           padding: '3px 4px',
                           overflow: 'hidden',
                         }}>
-                          <span style={{ fontSize: 9, fontWeight: '600', color: textColor(mainItem), lineHeight: '12px' }}>
+                          <span style={{ fontSize: 11, fontWeight: '600', color: textColor(mainItem), lineHeight: '13px', wordBreak: 'keep-all' }}>
                             {block.items.map((it) => it.title).join(', ')}
                           </span>
                         </div>
@@ -130,7 +140,7 @@ export default function CalendarPage() {
             </div>
           </div>
 
-        </div>
+        </main>
       )}
 
       <BottomNav />

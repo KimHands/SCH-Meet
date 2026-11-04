@@ -1,8 +1,10 @@
-Django==6.0.4
+Django==6.0.8
 django-cors-headers==4.7.0
-google-auth==2.23.0
-PyJWT==2.8.0
+google-auth==2.61.0
+PyJWT==2.15.1
 requests==2.34.2
+defusedxml==0.7.1
+urllib3==2.8.0
 # 배포(운영)
 gunicorn==23.0.0
 whitenoise==6.8.2

@@ -1,5 +1,7 @@
 # 배포 가이드 — Vercel(프론트) + Render(백엔드)
 
+> OCI 서버로 옮기는 절차는 [`deploy/README.md`](../../deploy/README.md)에 있다. 이 문서는 전환이 끝날 때까지 쓰는 기존 배포 방식이다.
+
 프론트엔드(Vite)는 **Vercel**, 백엔드(Django)+DB는 **Render**에 배포한다.
 순서: ① Render 백엔드 → ② Vercel 프론트 → ③ 양쪽 도메인으로 환경변수/OAuth 마무리.
 
@@ -14,7 +16,6 @@
    |----|---------|
    | `GOOGLE_CLIENT_ID` | 구글 OAuth 클라이언트 ID |
    | `GOOGLE_CLIENT_SECRET` | 구글 OAuth 시크릿 |
-   | `OCR_SPACE_API_KEY` | `K82796185288957` |
    | `DJANGO_ALLOWED_HOSTS` | (배포 후 채움) `schmeet-api.onrender.com` |
    | `FRONTEND_ORIGINS` | (Vercel 배포 후) `https://sch-meet.vercel.app` |
    | `FRONTEND_BASE_URL` | (Vercel 배포 후) `https://sch-meet.vercel.app` |
@@ -57,4 +58,8 @@
 - 백엔드 `DJANGO_SECRET_KEY`는 한 번 정해지면 바꾸지 말 것(바꾸면 기존 JWT 전부 무효 → 재로그인).
 - Render 무료 Postgres는 보존기간 제한이 있으니 운영 전 유료 플랜/백업 고려.
 - Render 무료 웹서비스는 유휴 시 절전(cold start)으로 첫 응답이 느릴 수 있음.
-- `OCR_SPACE_API_KEY`, `GOOGLE_CLIENT_SECRET` 등 실제 비밀값은 **대시보드에만** 입력(코드/`.env` 커밋 금지).
+- `GOOGLE_CLIENT_SECRET` 등 실제 비밀값은 **대시보드에만** 입력(코드/`.env` 커밋 금지).
+- 백엔드 주소를 바꾸면(서비스명·커스텀 도메인) `frontend/vercel.json`의 CSP `connect-src`도 같이 바꿀 것. 안 바꾸면 브라우저가 모든 API 호출을 막는다.
+- 운영 백엔드는 `RENDER=true`일 때 HTTPS 리다이렉트·HSTS·보안 쿠키가 켜진다. 레이트리밋용 클라이언트 IP는 `X-Forwarded-For`의 오른쪽에서 `TRUSTED_PROXY_COUNT`(기본 1)번째 값을 쓴다 — 배포 후 실제 헤더로 프록시 단 수를 확인할 것.
+- 관리자 페이지(`/admin/`)는 기본 비노출. 필요할 때만 `DJANGO_ADMIN_ENABLED=True`.
+- 마이그레이션 `0011`은 같은 모임의 중복 참여 행을 정리한 뒤 고유 제약을 건다(역방향 복구 불가). 배포 전 DB 백업 권장.

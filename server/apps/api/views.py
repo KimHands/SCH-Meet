@@ -1,8 +1,10 @@
 from .endpoints import (
     auth_login,
+    auth_refresh,
     dashboard_summary,
     fixed_schedule_detail,
     fixed_schedules,
+    health_check,
     meeting_confirm,
     meeting_confirmed,
     meeting_detail,
@@ -12,8 +14,8 @@ from .endpoints import (
     meetings_collection,
     notification_read,
     notifications_collection,
-    timetable_image_confirm,
-    timetable_upload_image,
+    timetable_class_detail,
+    timetable_classes,
     timetable_upload_url,
     consolidated_timetables,
     user_me,
@@ -21,10 +23,9 @@ from .endpoints import (
 
 __all__ = [
     'auth_login',
+    'auth_refresh',
     'user_me',
     'timetable_upload_url',
-    'timetable_upload_image',
-    'timetable_image_confirm',
     'fixed_schedules',
     'fixed_schedule_detail',
     'consolidated_timetables',
@@ -38,4 +39,7 @@ __all__ = [
     'dashboard_summary',
     'notifications_collection',
     'notification_read',
+    'health_check',
+    'timetable_classes',
+    'timetable_class_detail',
 ]

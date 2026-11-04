@@ -1,10 +1,40 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { colors } from '../styles/theme';
+import { colors, screenStyle, iconButtonStyle, pressableStyle } from '../styles/theme';
 import BottomNav from '../components/BottomNav';
 import Icon from '../components/Icon';
+import Toast from '../components/Toast';
+import ErrorBanner from '../components/ErrorBanner';
+import { useToast } from '../hooks/useToast';
 import { getMyProfile, updateMyProfile } from '../api/auth';
 import { token } from '../utils/token';
+
+const listCardStyle = {
+  marginTop: 8, backgroundColor: '#fff',
+  border: `1px solid ${colors.surfaceContainerHighest}`,
+  borderRadius: 14, paddingLeft: 16, paddingRight: 16,
+  listStyle: 'none',
+};
+
+function MenuRow({ icon, label, color = colors.onSurface, iconColor = colors.primary, onClick, borderBottom = 'none' }) {
+  return (
+    <li style={{ borderBottom }}>
+      <button
+        type="button"
+        onClick={onClick}
+        style={{
+          ...pressableStyle,
+          display: 'flex', alignItems: 'center', gap: 13,
+          paddingTop: 14, paddingBottom: 14,
+        }}
+      >
+        <Icon name={icon} size={21} color={iconColor} />
+        <span style={{ flex: 1, fontSize: 14, fontWeight: '500', color }}>{label}</span>
+        <Icon name="chevron_right" size={20} color={colors.outline} />
+      </button>
+    </li>
+  );
+}
 
 const INFO_ITEMS = [
   { icon: 'calendar_view_week', label: '시간표 관리',   path: '/upload-timetable' },
@@ -18,18 +48,17 @@ export default function MyPage() {
   const [editing, setEditing] = useState(false);
   const [nicknameInput, setNicknameInput] = useState('');
   const [saving, setSaving] = useState(false);
-  const [toast, setToast] = useState('');
+  const [loadError, setLoadError] = useState('');
+  const { toast, showToast } = useToast(2000);
 
-  useEffect(() => {
+  const loadProfile = useCallback(() => {
+    setLoadError('');
     getMyProfile()
       .then(setProfile)
-      .catch(() => {});
+      .catch((e) => setLoadError(e.message || '프로필을 불러오지 못했어요.'));
   }, []);
 
-  const showToast = (msg) => {
-    setToast(msg);
-    setTimeout(() => setToast(''), 2000);
-  };
+  useEffect(loadProfile, [loadProfile]);
 
   const handleEditStart = () => {
     setNicknameInput(profile?.nickname || '');
@@ -37,6 +66,7 @@ export default function MyPage() {
   };
 
   const handleSave = async () => {
+    if (saving) return;
     const trimmed = nicknameInput.trim();
     if (!trimmed) { showToast('닉네임을 입력해주세요'); return; }
     if (trimmed.length > 30) { showToast('닉네임은 30자 이하로 입력해주세요'); return; }
@@ -46,8 +76,8 @@ export default function MyPage() {
       setProfile(updated);
       setEditing(false);
       showToast('닉네임이 변경되었어요 ✓');
-    } catch {
-      showToast('저장에 실패했어요. 다시 시도해주세요');
+    } catch (e) {
+      showToast(e.message || '저장에 실패했어요. 다시 시도해주세요');
     } finally {
       setSaving(false);
     }
@@ -60,14 +90,16 @@ export default function MyPage() {
     }
   };
 
-  const displayName = profile?.nickname || profile?.email?.split('@')[0] || 'OOO';
+  const displayName = profile?.nickname || profile?.email?.split('@')[0] || (loadError ? '-' : '불러오는 중...');
 
   return (
-    <div style={{ height: '100vh', backgroundColor: colors.surface, display: 'flex', flexDirection: 'column' }}>
+    <div style={screenStyle}>
 
-      <div style={{ flex: 1, overflowY: 'auto', padding: '8px 20px 80px' }}>
+      <main style={{ flex: 1, overflowY: 'auto', padding: '8px 20px 80px' }}>
 
-        <p style={{ marginTop: 4, fontSize: 22, fontWeight: '700', color: colors.onSurface }}>마이페이지</p>
+        <h1 style={{ marginTop: 4, fontSize: 22, fontWeight: '700', color: colors.onSurface }}>마이페이지</h1>
+
+        {loadError && <ErrorBanner message={loadError} onRetry={loadProfile} style={{ marginTop: 12 }} />}
 
         {/* 프로필 카드 */}
         <div style={{
@@ -81,7 +113,7 @@ export default function MyPage() {
             {profile?.profile_image_url ? (
               <img
                 src={profile.profile_image_url}
-                alt="프로필"
+                alt="내 프로필 사진"
                 style={{ width: 54, height: 54, borderRadius: 9999, objectFit: 'cover' }}
               />
             ) : (
@@ -101,11 +133,12 @@ export default function MyPage() {
                   value={nicknameInput}
                   onChange={(e) => setNicknameInput(e.target.value)}
                   maxLength={30}
+                  aria-label="닉네임"
                   onKeyDown={(e) => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') setEditing(false); }}
                   style={{
                     width: '100%', fontSize: 16, fontWeight: '700',
                     color: colors.onSurface, border: 'none', borderBottom: `2px solid ${colors.primary}`,
-                    outline: 'none', background: 'transparent', padding: '2px 0',
+                    background: 'transparent', padding: '2px 0',
                   }}
                 />
               ) : (
@@ -120,23 +153,30 @@ export default function MyPage() {
             {editing ? (
               <div style={{ display: 'flex', gap: 6 }}>
                 <button
+                  type="button"
                   onClick={() => setEditing(false)}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}
+                  aria-label="닉네임 편집 취소"
+                  style={iconButtonStyle}
                 >
                   <Icon name="close" size={20} color={colors.outline} />
                 </button>
                 <button
+                  type="button"
                   onClick={handleSave}
                   disabled={saving}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}
+                  aria-label="닉네임 저장"
+                  style={iconButtonStyle}
                 >
                   <Icon name="check" size={20} color={saving ? colors.outline : colors.primary} />
                 </button>
               </div>
             ) : (
               <button
+                type="button"
                 onClick={handleEditStart}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}
+                disabled={!profile}
+                aria-label="닉네임 편집"
+                style={iconButtonStyle}
               >
                 <Icon name="edit" size={20} color={colors.outline} />
               </button>
@@ -145,65 +185,28 @@ export default function MyPage() {
         </div>
 
         {/* 내 정보 */}
-        <p style={{ marginTop: 22, fontSize: 12, fontWeight: '600', color: colors.outline }}>내 정보</p>
-        <div style={{
-          marginTop: 8, backgroundColor: '#fff',
-          border: `1px solid ${colors.surfaceContainerHighest}`,
-          borderRadius: 14, paddingLeft: 16, paddingRight: 16,
-        }}>
+        <h2 style={{ marginTop: 22, fontSize: 12, fontWeight: '600', color: colors.outline }}>내 정보</h2>
+        <ul style={listCardStyle}>
           {INFO_ITEMS.map((it, i) => (
-            <div
+            <MenuRow
               key={it.label}
+              icon={it.icon}
+              label={it.label}
               onClick={() => navigate(it.path)}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 13,
-                paddingTop: 14, paddingBottom: 14,
-                borderBottom: i < INFO_ITEMS.length - 1 ? `1px solid ${colors.surfaceContainerLow}` : 'none',
-                cursor: 'pointer',
-              }}
-            >
-              <Icon name={it.icon} size={21} color={colors.primary} />
-              <span style={{ flex: 1, fontSize: 14, fontWeight: '500', color: colors.onSurface }}>{it.label}</span>
-              <Icon name="chevron_right" size={20} color="#a9abb6" />
-            </div>
+              borderBottom={i < INFO_ITEMS.length - 1 ? `1px solid ${colors.surfaceContainerLow}` : 'none'}
+            />
           ))}
-        </div>
+        </ul>
 
         {/* 계정 */}
-        <p style={{ marginTop: 22, fontSize: 12, fontWeight: '600', color: colors.outline }}>계정</p>
-        <div style={{
-          marginTop: 8, backgroundColor: '#fff',
-          border: `1px solid ${colors.surfaceContainerHighest}`,
-          borderRadius: 14, paddingLeft: 16, paddingRight: 16,
-        }}>
-          <div
-            onClick={handleLogout}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 13,
-              paddingTop: 14, paddingBottom: 14,
-              cursor: 'pointer',
-            }}
-          >
-            <Icon name="logout" size={21} color={colors.error} />
-            <span style={{ flex: 1, fontSize: 14, fontWeight: '500', color: colors.error }}>로그아웃</span>
-            <Icon name="chevron_right" size={20} color="#a9abb6" />
-          </div>
-        </div>
+        <h2 style={{ marginTop: 22, fontSize: 12, fontWeight: '600', color: colors.outline }}>계정</h2>
+        <ul style={listCardStyle}>
+          <MenuRow icon="logout" label="로그아웃" color={colors.error} iconColor={colors.error} onClick={handleLogout} />
+        </ul>
 
-      </div>
+      </main>
 
-      {/* 토스트 */}
-      {toast && (
-        <div style={{
-          position: 'fixed', bottom: 90, left: '50%', transform: 'translateX(-50%)',
-          backgroundColor: 'rgba(0,0,0,0.75)', color: '#fff',
-          padding: '10px 20px', borderRadius: 20,
-          fontSize: 13, fontWeight: '500', whiteSpace: 'nowrap',
-          zIndex: 999,
-        }}>
-          {toast}
-        </div>
-      )}
+      <Toast message={toast} position="bottom" />
 
       <BottomNav />
     </div>
