@@ -1,7 +1,7 @@
 from django.core.cache import cache
 from django.test import TestCase
 
-from api.models import Notification
+from api.models import Notification, UserProfile
 
 from .helpers import auth_header, make_user, post_json
 
@@ -11,6 +11,7 @@ class MeetingNotificationTest(TestCase):
         cache.clear()
         self.creator = make_user('creator')
         self.member = make_user('member')
+        UserProfile.objects.create(user=self.member, nickname='member')
 
     def create_meeting(self):
         return post_json(self.client, '/api/meetings/', {'name': '팀플', 'capacity': 3}, self.creator).json()

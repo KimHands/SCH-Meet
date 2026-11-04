@@ -72,19 +72,21 @@ export async function getRecommendations(meetingId) {
 // 일정 확정 (모임장 전용 — 아니면 403)
 // POST /api/meetings/{id}/confirm/
 // 그 사이 시간이 막혔으면 409 { detail } → 화면에서 detail 표시 후 추천 다시 조회
-export async function confirmMeeting(meetingId, { recommendationId, day, startTime }) {
+export async function confirmMeeting(meetingId, { recommendationId, day, startTime, date }) {
   return apiClient(`/api/meetings/${meetingId}/confirm/`, {
     method: 'POST',
-    body: JSON.stringify({ selected_recommendation_id: recommendationId, day, start_time: startTime }),
+    body: JSON.stringify({ selected_recommendation_id: recommendationId, day, date, start_time: startTime }),
   });
 }
 
-// 확정된 모임 정보 조회
-// GET /api/meetings/{id}/confirmed/
+// 일정 확정 취소
+// DELETE /api/meetings/{id}/confirm/
 export async function cancelMeetingConfirmation(meetingId) {
   return apiClient(`/api/meetings/${meetingId}/confirm/`, { method: 'DELETE' });
 }
 
+// 확정된 모임 정보 조회
+// GET /api/meetings/{id}/confirmed/
 export async function getConfirmedMeeting(meetingId) {
   return apiClient(`/api/meetings/${meetingId}/confirmed/`);
   // 응답: { meeting_id, meeting_name, confirmed_time, confirmed_location, confirmed_members }

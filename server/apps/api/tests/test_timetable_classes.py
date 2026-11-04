@@ -184,7 +184,7 @@ class EverytimeFieldLengthTest(TestCase):
 
 class FixedScheduleTitleTest(TestCase):
     def test_too_long_title_is_explained_in_korean(self):
-        body = {'title': '가' * 21, 'repeat_days': ['MON'], 'start_time': '09:00', 'end_time': '10:00'}
+        body = {'title': '가' * 51, 'repeat_days': ['MON'], 'start_time': '09:00', 'end_time': '10:00'}
         res = post_json(self.client, '/api/schedules/fixed/', body, make_user('kim'))
         self.assertEqual(res.status_code, 400)
-        self.assertIn('20자', res.json()['detail'])
+        self.assertIn('50자', res.json()['detail'])

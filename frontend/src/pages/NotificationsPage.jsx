@@ -27,6 +27,7 @@ export default function NotificationsPage() {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
+  const [readAllError, setReadAllError] = useState('');
 
   const loadNotifications = useCallback(() => {
     setLoading(true);
@@ -55,11 +56,12 @@ export default function NotificationsPage() {
   };
 
   const handleReadAll = async () => {
+    setReadAllError('');
     try {
       await readAllNotifications();
       setNotifications((prev) => prev.map((item) => ({ ...item, is_read: true })));
     } catch (e) {
-      setLoadError(e.message || '읽음 처리에 실패했어요.');
+      setReadAllError(e.message || '읽음 처리에 실패했어요.');
     }
   };
 
@@ -83,6 +85,7 @@ export default function NotificationsPage() {
           )}
         </div>
 
+        {readAllError && <p role="alert" style={{ marginTop: 8, fontSize: 12, color: colors.error }}>{readAllError}</p>}
         {loadError && <ErrorBanner message={loadError} onRetry={loadNotifications} style={{ marginTop: 16 }} />}
 
         {loading ? (

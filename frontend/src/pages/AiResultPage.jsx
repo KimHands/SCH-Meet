@@ -113,6 +113,7 @@ export default function AiResultPage() {
         recommendationId: rec.recommendation_id,
         day: rec.day,
         startTime: rec.start_time,
+        date: rec.date,
       });
       navigate(`/meetings/${id}/confirmed`);
     } catch (e) {

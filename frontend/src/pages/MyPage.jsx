@@ -37,8 +37,8 @@ function MenuRow({ icon, label, color = colors.onSurface, iconColor = colors.pri
 }
 
 const INFO_ITEMS = [
-  { icon: 'calendar_view_week', label: '시간표 관리',   path: '/upload-timetable' },
-  { icon: 'event_repeat',       label: '고정 일정 관리', path: '/add-schedule' },
+  { icon: 'calendar_view_week', label: '시간표 관리',   path: '/upload-timetable', state: { manage: true } },
+  { icon: 'event_repeat',       label: '고정 일정 관리', path: '/add-schedule', state: { manage: true } },
   { icon: 'notifications',      label: '알림',         path: '/notifications' },
 ];
 
@@ -204,7 +204,7 @@ export default function MyPage() {
               key={it.label}
               icon={it.icon}
               label={it.label}
-              onClick={() => navigate(it.path)}
+              onClick={() => navigate(it.path, { state: it.state })}
               borderBottom={i < INFO_ITEMS.length - 1 ? `1px solid ${colors.surfaceContainerLow}` : 'none'}
             />
           ))}
