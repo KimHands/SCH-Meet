@@ -1,5 +1,6 @@
 from .auth import auth_login, auth_refresh
 from .dashboard import dashboard_summary
+from .health import health_check
 from .meetings import (
     meeting_confirm,
     meeting_confirmed,
@@ -39,4 +40,5 @@ __all__ = [
     'dashboard_summary',
     'notifications_collection',
     'notification_read',
+    'health_check',
 ]

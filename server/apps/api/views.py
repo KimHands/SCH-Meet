@@ -4,6 +4,7 @@ from .endpoints import (
     dashboard_summary,
     fixed_schedule_detail,
     fixed_schedules,
+    health_check,
     meeting_confirm,
     meeting_confirmed,
     meeting_detail,
@@ -40,4 +41,5 @@ __all__ = [
     'dashboard_summary',
     'notifications_collection',
     'notification_read',
+    'health_check',
 ]
