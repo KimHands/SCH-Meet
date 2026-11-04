@@ -398,9 +398,6 @@ def consolidated_timetables(request):
             merged_blocks[-1]['end_minute'] = max(merged_blocks[-1]['end_minute'], event['end_minute'])
             merged_blocks[-1]['items'].append(event['item'])
 
-        for block in merged_blocks:
-            block.pop('end_minute', None)
-
         payload[day_code] = merged_blocks
 
     return JsonResponse(payload, status=200)

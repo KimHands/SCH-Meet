@@ -141,6 +141,27 @@ class EverytimeFailureTest(TestCase):
         self.assertIn('에브리타임', res.json()['detail'])
 
 
+class ConsolidatedTimetableTest(TestCase):
+    def setUp(self):
+        self.user = make_user('kim')
+
+    def monday_blocks(self):
+        res = self.client.get('/api/timetables/consolidated/', **auth_header(self.user))
+        return res.json()['MON']
+
+    def test_block_includes_end_minute(self):
+        _make_class(self.user, start_minute=540, end_minute=630)
+        block = self.monday_blocks()[0]
+        self.assertEqual((block['start_minute'], block['end_minute']), (540, 630))
+
+    def test_overlapping_classes_merge_to_latest_end_minute(self):
+        _make_class(self.user, name='긴 수업', start_minute=540, end_minute=720)
+        _make_class(self.user, name='겹친 수업', start_minute=600, end_minute=660)
+        blocks = self.monday_blocks()
+        self.assertEqual(len(blocks), 1)
+        self.assertEqual(blocks[0]['end_minute'], 720)
+
+
 class EverytimeFieldLengthTest(TestCase):
     def test_long_values_fit_model_columns(self):
         long_value = 'x' * 300
